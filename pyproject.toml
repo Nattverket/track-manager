@@ -44,6 +44,7 @@ dev = [
 
 [project.scripts]
 track-manager = "track_manager.cli:main"
+tm = "track_manager.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Nattverket/track-manager"

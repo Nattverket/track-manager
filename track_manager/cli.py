@@ -15,11 +15,39 @@ from .config import Config
 from .downloader import Downloader
 
 
-@click.group()
+class DefaultGroup(click.Group):
+    """Click group that defaults to a specified command when no command is given."""
+    
+    def __init__(self, *args, **kwargs):
+        self.default_command = kwargs.pop('default_command', None)
+        super(DefaultGroup, self).__init__(*args, **kwargs)
+
+    def get_command(self, ctx, cmd_name):
+        # If no command is specified and we have a default command,
+        # treat the first argument as the URL for the default command
+        if not cmd_name and self.default_command is not None:
+            # No command provided, use default
+            return self.commands[self.default_command]
+        
+        # If the command name is not found and we have a default command,
+        # treat the command name as the URL for the default command
+        if cmd_name not in self.commands and self.default_command is not None:
+            # Prepend the command name (URL) to the args for the default command
+            ctx.args = [cmd_name] + ctx.args
+            return self.commands[self.default_command]
+        
+        return super(DefaultGroup, self).get_command(ctx, cmd_name)
+
+
+@click.group(cls=DefaultGroup, default_command='download', invoke_without_command=True)
 @click.version_option()
-def cli():
+@click.pass_context
+def cli(ctx):
     """Track Manager - Universal music downloader with smart duplicate detection."""
-    pass
+    # If no arguments provided and no command, show help
+    if ctx.invoked_subcommand is None and not ctx.protected_args and not ctx.args:
+        click.echo(ctx.get_help())
+        ctx.exit()
 
 
 @cli.command()
