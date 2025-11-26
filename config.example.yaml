@@ -12,6 +12,12 @@ metadata_csv: "~/Documents/projects/DJ/tracks-metadata-review.csv"
 
 # Spotdl configuration (for Spotify downloads)
 spotdl:
+  # Spotify API credentials (get from https://developer.spotify.com/dashboard)
+  # Preferably set as environment variables: SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET
+  # Or set them here (but keep config.yaml out of version control!)
+  client_id: ""
+  client_secret: ""
+  
   # Path to spotdl executable (leave empty to use 'spotdl' from PATH)
   path: ""
   # Alternative: Use a specific Python environment

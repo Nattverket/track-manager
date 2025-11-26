@@ -28,11 +28,26 @@ class SpotifyDownloader(BaseDownloader):
         super().__init__(config, output_dir)
         
         # Initialize spotdl
+        import os
+        from spotdl.types.options import DownloaderOptions
+        
+        # Get Spotify credentials from environment variables or config
+        client_id = os.getenv("SPOTIPY_CLIENT_ID", "")
+        client_secret = os.getenv("SPOTIPY_CLIENT_SECRET", "")
+        
+        # Fall back to config if not in environment
+        if not client_id and hasattr(config, 'spotdl'):
+            client_id = config.spotdl.get('client_id', '')
+        if not client_secret and hasattr(config, 'spotdl'):
+            client_secret = config.spotdl.get('client_secret', '')
+        
+        downloader_settings = DownloaderOptions()
+        downloader_settings['output'] = str(output_dir)
+        
         self.spotdl = Spotdl(
-            client_id="",  # Uses anonymous mode
-            client_secret="",
-            output=str(output_dir),
-            save_file=None,
+            client_id=client_id,
+            client_secret=client_secret,
+            downloader_settings=downloader_settings,
         )
     
     def download(self, url: str, format: str = 'auto'):
@@ -53,7 +68,7 @@ class SpotifyDownloader(BaseDownloader):
         
         try:
             # Get songs from URL
-            songs = Song.list_from_url(url)
+            songs = self.spotdl.search([url])
             
             if not songs:
                 print("❌ No tracks found")
@@ -124,22 +139,28 @@ class SpotifyDownloader(BaseDownloader):
         Returns:
             Path to downloaded file or None
         """
-        # spotdl creates files like "Artist - Title.format"
-        artist = self.sanitize_filename(song.artist)
-        title = self.sanitize_filename(song.name)
+        from datetime import datetime, timedelta
         
-        # Try common patterns
-        patterns = [
-            f"{artist} - {title}.{format}",
-            f"{artist} - {title}.mp3",
-            f"{artist} - {title}.m4a",
-            f"{song.display_name}.{format}",
-        ]
+        # spotdl creates files with various patterns
+        # Look for recently created files (within last 60 seconds)
+        cutoff_time = datetime.now().timestamp() - 60
         
-        for pattern in patterns:
-            file_path = self.output_dir / pattern
-            if file_path.exists():
-                return file_path
+        # Search for files containing the song title
+        title_part = self.sanitize_filename(song.name).lower()
+        
+        for file_path in self.output_dir.glob(f"*.{format}"):
+            # Check if file was created recently
+            if file_path.stat().st_mtime > cutoff_time:
+                # Check if title appears in filename
+                if title_part in file_path.stem.lower():
+                    return file_path
+        
+        # Also try MP3 if looking for other formats
+        if format != 'mp3':
+            for file_path in self.output_dir.glob("*.mp3"):
+                if file_path.stat().st_mtime > cutoff_time:
+                    if title_part in file_path.stem.lower():
+                        return file_path
         
         return None
     
