@@ -2,7 +2,7 @@
 
 Universal audio track downloader with smart duplicate detection and metadata management.
 
-Download music from **any source** - Spotify, YouTube, SoundCloud, or direct URLs - with a single command.
+Download music from **any source** - Spotify, YouTube, SoundCloud, or direct URLs - with a single Python command.
 
 ## Features
 
@@ -14,67 +14,80 @@ Download music from **any source** - Spotify, YouTube, SoundCloud, or direct URL
 - 🔄 **Error resilience** - Logs failures, continues downloading
 - 🎚️ **Quality preservation** - Best available bitrate, no destructive transcoding
 - ⚙️ **Configurable** - Customize output directory, behavior, and preferences
+- 🐍 **Pure Python** - Single pip install, no external CLI tools to manage
 
 ## Installation
 
+### Quick Install
+
+```bash
+pip install git+https://github.com/Nattverket/track-manager.git
+```
+
+### Development Install
+
+```bash
+# Clone repository
+git clone https://github.com/Nattverket/track-manager.git
+cd track-manager
+
+# Install in development mode
+pip install -e .
+
+# Install with dev dependencies
+pip install -e ".[dev]"
+```
+
 ### Requirements
 
-- Python 3.8+
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-- [spotdl](https://github.com/spotDL/spotify-downloader) (for Spotify)
-- curl (usually pre-installed)
-- ffmpeg (for format conversion)
+- Python 3.8 or higher
+- All other dependencies are installed automatically via pip:
+  - `yt-dlp` - YouTube and SoundCloud downloads
+  - `spotdl` - Spotify downloads (native API)
+  - `requests` - Direct URL downloads
+  - `mutagen` - Audio metadata handling
+  - `pyyaml` - Configuration management
+  - `click` - CLI framework
 
-### Setup
-
-1. **Install system dependencies:**
+**Note:** `spotdl` may require `ffmpeg` for audio processing. If you encounter errors:
 ```bash
 # macOS
-brew install yt-dlp ffmpeg
+brew install ffmpeg
 
 # Linux (Debian/Ubuntu)
-sudo apt install yt-dlp ffmpeg curl
-
-# Or install yt-dlp via pip
-pip install yt-dlp
+sudo apt install ffmpeg
 ```
 
-2. **Install spotdl** (for Spotify support):
-```bash
-pip install spotdl
-```
+### Verify Installation
 
-3. **Install Python dependencies:**
-```bash
-pip install -r requirements.txt
-```
-
-4. **Configure:**
-```bash
-cp config.example.yaml config.yaml
-# Edit config.yaml with your preferences
-```
-
-5. **Verify installation:**
 ```bash
 track-manager check-setup
-# Or if not installed:
-python -m track_manager check-setup
 ```
 
 ## Configuration
 
-Edit `config.yaml` to customize:
+Configuration is **optional**. Track Manager works out of the box with sensible defaults.
 
-- **Output directory** - Where tracks are saved
-- **Failed downloads log** - Where errors are logged
-- **Metadata review CSV** - Where problematic metadata is flagged
-- **Spotdl path** - Custom spotdl location (or use system PATH)
-- **Default format** - M4A (default) or MP3
-- **Playlist threshold** - Confirmation for large playlists
-- **Duplicate handling** - Interactive (default), skip, or keep
+To customize behavior, create a `config.yaml` file:
 
-See `config.example.yaml` for all options.
+```bash
+# Copy example configuration
+cp config.example.yaml config.yaml
+
+# Edit to customize
+# - Output directory
+# - Duplicate handling behavior
+# - Metadata review preferences
+# - Playlist confirmation threshold
+```
+
+See `config.example.yaml` for all available options.
+
+**Default behavior without config:**
+- Downloads to `~/Documents/projects/DJ/tracks`
+- Interactive duplicate handling (prompts for choice)
+- Creates metadata review CSV when needed
+- Confirms playlists over 50 tracks
 
 ## Usage
 
@@ -94,40 +107,47 @@ track-manager download "https://example.com/audio.mp3"
 ### Format Selection
 
 ```bash
-# Force M4A
+# Force M4A (default for most sources)
 track-manager download "<url>" --format m4a
 
 # Force MP3
 track-manager download "<url>" --format mp3
 
-# Auto (default) - prefers M4A, accepts best available
+# Auto (default) - uses best available format
 track-manager download "<url>"
+```
+
+### Custom Output Directory
+
+```bash
+# Override configured output directory
+track-manager download "<url>" --output /path/to/directory
 ```
 
 ### Playlists
 
 ```bash
-# Spotify playlist
+# Spotify playlist or album
 track-manager download "https://open.spotify.com/playlist/..."
+track-manager download "https://open.spotify.com/album/..."
 
 # YouTube playlist
 track-manager download "https://www.youtube.com/playlist?list=..."
 
-# SoundCloud set
+# SoundCloud set or playlist
 track-manager download "https://soundcloud.com/user/sets/..."
 ```
 
-Playlists >50 tracks will prompt for confirmation.
+Playlists with more than 50 tracks will prompt for confirmation (configurable).
 
 ### Metadata Management
 
 **Check for duplicates:**
 ```bash
+# Check specific file
 track-manager check-duplicates --file <path>
-```
 
-**Scan library for duplicates:**
-```bash
+# Scan entire library
 track-manager check-duplicates
 ```
 
@@ -136,15 +156,15 @@ track-manager check-duplicates
 track-manager verify-metadata
 ```
 
-**Review problematic metadata:**
+**Review and fix problematic metadata:**
 ```bash
 # View pending reviews
 track-manager apply-metadata --show
 
-# Edit CSV file to fix metadata
-# File location configured in config.yaml
+# Edit the CSV file to correct metadata
+# Default: ~/Documents/projects/DJ/tracks-metadata-review.csv
 
-# Apply fixes
+# Apply corrections
 track-manager apply-metadata
 ```
 
@@ -152,77 +172,147 @@ track-manager apply-metadata
 
 ### Source Detection
 
-The main script detects the source from the URL:
-- **Spotify** → Uses spotdl to find YouTube URLs, downloads with yt-dlp
-- **YouTube** → Direct download with yt-dlp
-- **SoundCloud** → Uses yt-dlp (has SoundCloud support)
-- **Direct URLs** → Downloads with curl, converts if needed
+Track Manager automatically detects the source from the URL:
+
+- **Spotify** → Uses spotdl with native Spotify API for direct downloads
+- **YouTube** → Uses yt-dlp with native YouTube support
+- **SoundCloud** → Uses yt-dlp with native SoundCloud support
+- **Direct URLs** → Uses Python requests for HTTP downloads
+
+Each source is handled with its appropriate native API - no unnecessary conversions or workarounds.
 
 ### Duplicate Detection
 
-- Extracts metadata (artist + title) from audio files
-- Normalizes metadata (removes junk patterns, handles variations)
-- Compares across formats (finds MP3 duplicate of M4A file)
-- Interactive prompt: skip, keep both, or replace
+1. Extracts metadata (artist + title) from audio file tags
+2. Normalizes metadata:
+   - Removes junk patterns like "[Official Video]", "(Audio)", "[HD]"
+   - Handles "feat." variations
+   - Case-insensitive comparison
+3. Compares across formats (detects M4A duplicate of MP3)
+4. Interactive prompt when duplicate found:
+   - Skip new file (keep existing)
+   - Keep both files
+   - Replace existing with new file
 
-### Metadata Review
+**Note:** Remixes and versions with different titles won't be flagged as duplicates.
 
-When metadata is missing or problematic:
-1. Track is flagged to CSV file
+### Metadata Review Workflow
+
+When metadata is missing or contains junk patterns:
+
+1. Track is automatically flagged to CSV file
 2. You edit CSV to provide correct metadata
-3. Run apply script to update files
-4. Processed rows are removed from CSV
+3. Run `track-manager apply-metadata` to update files
+4. Processed rows are automatically removed from CSV
+
+The CSV file is created only when needed and removed when empty.
 
 ### Error Handling
 
-- Failed downloads are logged with timestamp and error
-- Download continues with next track
+- Failed downloads logged with timestamp and error message
+- Download process continues with next track (doesn't stop on errors)
 - Failed URLs can be retried later
+- Log file location configurable (default: `~/Documents/projects/DJ/failed-downloads.txt`)
 
 ## Supported Sources
 
-| Source | Tracks | Playlists | Albums | Notes |
-|--------|--------|-----------|--------|-------|
-| Spotify | ✅ | ✅ | ✅ | Via spotdl → yt-dlp |
-| YouTube | ✅ | ✅ | ❌ | Direct via yt-dlp |
-| SoundCloud | ✅ | ✅ | ✅ | Via yt-dlp |
-| Direct URLs | ✅ | ❌ | ❌ | Any audio format |
+| Source | Tracks | Playlists | Albums | Implementation |
+|--------|--------|-----------|--------|----------------|
+| Spotify | ✅ | ✅ | ✅ | spotdl (native API) |
+| YouTube | ✅ | ✅ | N/A | yt-dlp (native) |
+| SoundCloud | ✅ | ✅ | ✅ | yt-dlp (native) |
+| Direct URLs | ✅ | ❌ | ❌ | requests (HTTP) |
 
 ## Architecture
+
+### Package Structure
+
+track_manager/
+├── __init__.py          # Package initialization
+├── __main__.py          # Entry point for python -m track_manager
+├── cli.py               # Click-based CLI commands
+├── config.py            # Configuration management
+├── downloader.py        # Main orchestration logic
+├── duplicates.py        # Duplicate detection system
+├── metadata.py          # Metadata extraction and review
+└── sources/             # Source-specific handlers
+    ├── base.py          # Base downloader class
+    ├── spotify.py       # Spotify via spotdl
+    ├── youtube.py       # YouTube via yt-dlp
+    ├── soundcloud.py    # SoundCloud via yt-dlp
+    └── direct.py        # Direct URL downloads
+
+### Design Philosophy
+
+1. **Native APIs First**: Each source uses its appropriate library
+   - Spotify → spotdl (native Spotify API)
+   - YouTube/SoundCloud → yt-dlp (native support for both)
+   - Direct URLs → requests (simple HTTP)
+
+2. **Pure Python**: No external CLI tools to install
+   - All functionality via Python packages
+   - Single `pip install` command
+   - Cross-platform by default
+
+3. **Smart Defaults**: Works without configuration
+   - Sensible default paths
+   - Interactive mode by default
+   - Creates required files/directories automatically
+
+4. **User Control**: Interactive prompts for important decisions
+   - Duplicate handling (skip/keep/replace)
+   - Large playlist confirmation
+   - Metadata review workflow
+
+### Data Flow
+URL → Downloader.detect_source()
+    ↓
+Source Handler (spotify/youtube/soundcloud/direct)
+    ↓
+Download to temp location
+    ↓
+Extract metadata
+    ↓
+Check for duplicates → [Interactive prompt if found]
+    ↓
+Flag for review if metadata issues
+    ↓
+Move to final location
 
 ## Testing
 
 ### Running Tests
 
 ```bash
-# Install test dependencies
-pip install -r requirements.txt
+# Install dev dependencies
+pip install -e ".[dev]"
 
 # Run all tests
-./run_tests.sh
+pytest
 
-# Run with coverage report
-./run_tests.sh --cov
+# Run with coverage
+pytest --cov=track_manager --cov-report=html
 
 # Run specific test file
-./run_tests.sh tests/unit/test_config_reader.py
+pytest tests/unit/test_config_reader.py
 
 # Run tests matching pattern
-./run_tests.sh -k "normalize"
+pytest -k "normalize"
 ```
 
 ### Test Structure
-
-- `tests/unit/` - Unit tests for individual modules
-- `tests/integration/` - Integration tests for workflows
-- `tests/fixtures/` - Test data and fixtures
+tests/
+├── unit/              # Unit tests for individual modules
+│   ├── test_config_reader.py
+│   └── test_track_metadata.py
+├── integration/       # Integration tests (to be added)
+└── fixtures/          # Test data and fixtures
 
 ### Writing Tests
 
-Tests use pytest. See existing tests in `tests/unit/` for examples.
+Tests use pytest. Example:
 
 ```python
-# Example test
 def test_something():
     result = my_function()
     assert result == expected
@@ -233,36 +323,79 @@ def test_something():
 Contributions welcome! Please:
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch (`git checkout -b feature-name`)
 3. Write tests for new features
-4. Ensure all tests pass
+4. Ensure all tests pass (`pytest`)
 5. Submit a pull request
 
 ## License
 
-MIT License - See LICENSE file for details.
+MIT License - See [LICENSE](LICENSE) file for details.
 
-## Architecture Decisions
+## Roadmap
 
-### Library Choices
+### Current Status (v0.1.0)
+- ✅ Core download functionality
+- ✅ Duplicate detection
+- ✅ Metadata management
+- ✅ All source handlers (Spotify, YouTube, SoundCloud, Direct)
+- ✅ CLI with commands
+- ✅ Configuration system
 
-**Why we use yt-dlp for both YouTube and SoundCloud:**
+### Planned Features
+- 🔲 Publish to PyPI
+- 🔲 Additional source support (Bandcamp, Apple Music)
+- 🔲 Playlist organization features
+- 🔲 Integration tests
+- 🔲 Better progress bars
+- 🔲 Batch operations
+- 🔲 Web UI (optional)
 
-yt-dlp is a universal downloader with **native support** for 1000+ sites, including YouTube and SoundCloud. It's not "forcing through YouTube" - it downloads directly from each source using their respective APIs.
+## FAQ
 
-- **YouTube**: yt-dlp with native YouTube support
-- **SoundCloud**: yt-dlp with native SoundCloud support  
-- **Spotify**: spotdl (native Spotify API)
-- **Direct URLs**: requests (HTTP download)
+**Q: Do I need to install ffmpeg?**  
+A: Usually no. It's only needed if spotdl requires it for Spotify downloads. If you get errors, install it with `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Linux).
 
-**Key improvement from bash version:**
-- ❌ Old: Spotify → find on YouTube → download (unnecessary conversion)
-- ✅ New: Spotify → spotdl → direct download (native API)
+**Q: Can I use this without a Spotify account?**  
+A: Yes! Spotify downloads work without authentication for most tracks. Some may require a premium account.
 
-**Why not dedicated SoundCloud libraries?**
-- yt-dlp's SoundCloud support is mature and actively maintained
-- Fewer dependencies = easier installation
-- Proven reliability with millions of users
-- Already required for YouTube anyway
+**Q: How does duplicate detection work across formats?**  
+A: It compares artist + title from audio metadata tags, not filenames. It normalizes both (removes junk, handles variations) and compares case-insensitively. This works across MP3/M4A/etc.
 
-Each source is handled appropriately - we're not forcing conversions or workarounds.
+**Q: What happens if a download fails?**  
+A: The error is logged to `failed-downloads.txt` and the process continues with the next track. You can retry failed URLs later.
+
+**Q: Can I customize the output directory per download?**  
+A: Yes, use `--output /path/to/dir` with the download command.
+
+## Troubleshooting
+
+**Error: "spotdl not found"**
+```bash
+pip install spotdl
+```
+
+**Error: "yt-dlp not found"**
+```bash
+pip install yt-dlp
+```
+
+**Error: "No module named 'track_manager'"**
+```bash
+# Reinstall the package
+pip install --force-reinstall git+https://github.com/Nattverket/track-manager.git
+```
+
+**Downloads fail with encoding errors**
+```bash
+# Try updating yt-dlp
+pip install --upgrade yt-dlp
+```
+
+## Credits
+
+Built with:
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) - Universal media downloader
+- [spotdl](https://github.com/spotDL/spotify-downloader) - Spotify downloader
+- [mutagen](https://github.com/quodlibet/mutagen) - Audio metadata library
+- [click](https://click.palletsprojects.com/) - CLI framework

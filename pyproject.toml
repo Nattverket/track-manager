@@ -46,10 +46,10 @@ dev = [
 track-manager = "track_manager.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/track-manager"
-Documentation = "https://github.com/yourusername/track-manager#readme"
-Repository = "https://github.com/yourusername/track-manager"
-Issues = "https://github.com/yourusername/track-manager/issues"
+Homepage = "https://github.com/Nattverket/track-manager"
+Documentation = "https://github.com/Nattverket/track-manager#readme"
+Repository = "https://github.com/Nattverket/track-manager"
+Issues = "https://github.com/Nattverket/track-manager/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
