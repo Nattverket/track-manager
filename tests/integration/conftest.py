@@ -59,19 +59,23 @@ def create_test_audio_file():
         from mutagen.mp3 import MP3
         from mutagen.id3 import ID3, TIT2, TPE1
         from mutagen.mp4 import MP4
+        import shutil
         
         # Ensure parent directory exists
         path.parent.mkdir(parents=True, exist_ok=True)
         
+        # Get the template file path
+        fixtures_dir = Path(__file__).parent.parent / 'fixtures'
+        template_file = fixtures_dir / f'template.{format}'
+        
+        # Copy template file
+        shutil.copy(template_file, path)
+        
+        # Add metadata
         if format == 'mp3':
-            # Create minimal valid MP3 file
-            # This is a minimal MP3 frame header
-            mp3_data = b'\xff\xfb\x90\x00' + b'\x00' * 100
-            path.write_bytes(mp3_data)
-            
-            # Add ID3 tags
             audio = MP3(str(path), ID3=ID3)
-            audio.add_tags()
+            if not audio.tags:
+                audio.add_tags()
             if artist:
                 audio.tags.add(TPE1(encoding=3, text=artist))
             if title:
@@ -79,16 +83,6 @@ def create_test_audio_file():
             audio.save()
             
         elif format == 'm4a':
-            # Create minimal valid M4A file
-            # This is a minimal M4A container
-            m4a_data = (
-                b'\x00\x00\x00\x20ftypisom\x00\x00\x02\x00'
-                b'isomiso2avc1mp41'
-                b'\x00\x00\x00\x08free'
-            )
-            path.write_bytes(m4a_data)
-            
-            # Add tags
             audio = MP4(str(path))
             if artist:
                 audio.tags['\xa9ART'] = [artist]

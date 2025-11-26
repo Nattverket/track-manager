@@ -40,6 +40,9 @@ def normalize_text(text: str) -> str:
     text = re.sub(r'\s*\(?\s*feat\.?\s+', ' feat. ', text, flags=re.IGNORECASE)
     text = re.sub(r'\s*\(?\s*featuring\s+', ' feat. ', text, flags=re.IGNORECASE)
     
+    # Remove orphaned closing parentheses from feat. normalization
+    text = re.sub(r'\s*\)+', '', text)
+    
     # Normalize artist separators
     text = re.sub(r'\s*[x&]\s*', ' vs. ', text)
     text = re.sub(r'\s+vs\.?\s+', ' vs. ', text, flags=re.IGNORECASE)
