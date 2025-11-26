@@ -22,6 +22,12 @@
 
 ### High Priority
 
+- [ ] **Improve Spotify credential setup UX** - Make it easier for new users
+  - Add first-run detection (check for credentials on startup)
+  - Provide clear error messages with setup instructions
+  - Add interactive credential setup wizard
+  - Document the process clearly in README
+  - Consider: Can we work without credentials? (Spotify API requires them)
 - [ ] **Test with real URLs** - Validate all source handlers work correctly
   - Spotify tracks, playlists, and albums
   - YouTube videos and playlists
