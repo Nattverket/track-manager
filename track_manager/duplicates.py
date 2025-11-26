@@ -183,11 +183,14 @@ def check_file_duplicate(file_path: Path, library_dir: Path, handling: str) -> b
                 print("Invalid choice. Please enter s, k, or r.")
 
 
-def scan_library(library_dir: Path):
+def scan_library(library_dir: Path) -> dict:
     """Scan library for duplicates.
     
     Args:
         library_dir: Library directory
+        
+    Returns:
+        Dict of normalized metadata -> list of duplicate file paths
     """
     print(f"Scanning {library_dir}...\n")
     
@@ -209,7 +212,7 @@ def scan_library(library_dir: Path):
     
     if not duplicates:
         print("✓ No duplicates found")
-        return
+        return {}
     
     print(f"⚠️  Found {len(duplicates)} duplicate groups:\n")
     
@@ -220,6 +223,8 @@ def scan_library(library_dir: Path):
         for f in files:
             print(f"  - {f.name}")
         print()
+    
+    return duplicates
 
 
 def check_file(file_path: Path, library_dir: Path):

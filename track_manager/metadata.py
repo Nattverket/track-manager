@@ -153,15 +153,21 @@ def sanitize_filename(text: str) -> str:
     return text
 
 
-def apply_metadata_csv(csv_path: Path):
+def apply_metadata_csv(csv_path: Path, dry_run: bool = False) -> dict:
     """Apply metadata corrections from CSV.
     
     Args:
         csv_path: Path to review CSV
+        dry_run: If True, don't modify files or CSV (just show what would be done)
+        
+    Returns:
+        Dict with 'processed', 'remaining', and 'errors' counts
     """
+    result = {'processed': 0, 'remaining': 0, 'errors': 0}
+    
     if not csv_path.exists():
         print(f"No review file found at: {csv_path}")
-        return
+        return result
     
     # Read all rows
     with open(csv_path, 'r', newline='') as f:
@@ -170,9 +176,8 @@ def apply_metadata_csv(csv_path: Path):
     
     if not rows:
         print("No reviews to process")
-        return
+        return result
     
-    processed_count = 0
     remaining_rows = []
     
     for row in rows:
@@ -183,38 +188,52 @@ def apply_metadata_csv(csv_path: Path):
         # Check if row is ready to process
         if not suggested_artist or not suggested_title:
             remaining_rows.append(row)
+            result['remaining'] += 1
             continue
         
         # Check if file exists
         if not file_path.exists():
             print(f"⚠️  File not found: {file_path}")
+            result['errors'] += 1
             continue
         
         # Apply update
-        print(f"\nProcessing: {file_path.name}")
+        if dry_run:
+            print(f"\n[DRY RUN] Would process: {file_path.name}")
+        else:
+            print(f"\nProcessing: {file_path.name}")
         print(f"  Artist: {row['current_artist']} → {suggested_artist}")
         print(f"  Title: {row['current_title']} → {suggested_title}")
         
-        if update_metadata(file_path, suggested_artist, suggested_title):
-            processed_count += 1
+        if dry_run:
+            result['processed'] += 1
+        elif update_metadata(file_path, suggested_artist, suggested_title):
+            result['processed'] += 1
         else:
             remaining_rows.append(row)
+            result['errors'] += 1
     
-    # Write remaining rows back to CSV
-    if remaining_rows:
-        with open(csv_path, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=CSV_HEADERS)
-            writer.writeheader()
-            writer.writerows(remaining_rows)
-        
-        print(f"\n✓ Processed {processed_count} tracks")
-        print(f"⚠️  {len(remaining_rows)} rows remain for review")
-        print(f"   Review at: {csv_path}")
+    # Write remaining rows back to CSV (skip in dry run)
+    if not dry_run:
+        if remaining_rows:
+            with open(csv_path, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=CSV_HEADERS)
+                writer.writeheader()
+                writer.writerows(remaining_rows)
+            
+            print(f"\n✓ Processed {result['processed']} tracks")
+            print(f"⚠️  {result['remaining']} rows remain for review")
+            print(f"   Review at: {csv_path}")
+        else:
+            # Remove empty CSV
+            csv_path.unlink()
+            print(f"\n✓ Processed {result['processed']} tracks")
     else:
-        # Remove empty CSV
-        csv_path.unlink()
-        print(f"\n✓ Processed {processed_count} tracks")
-        print(f"✓ All reviews complete - CSV removed")
+        print(f"\n[DRY RUN] Would process {result['processed']} tracks")
+        if remaining_rows:
+            print(f"[DRY RUN] {len(remaining_rows)} rows would remain")
+    
+    return result
 
 
 def update_metadata(file_path: Path, artist: str, title: str) -> bool:
@@ -261,11 +280,14 @@ def update_metadata(file_path: Path, artist: str, title: str) -> bool:
         return False
 
 
-def verify_library(output_dir: Path):
+def verify_library(output_dir: Path) -> dict:
     """Verify metadata quality in library.
     
     Args:
         output_dir: Library directory
+        
+    Returns:
+        Dict with 'missing' and 'junk' lists of (file_path, artist, title) tuples
     """
     print(f"Verifying metadata in {output_dir}...\n")
     
@@ -301,6 +323,11 @@ def verify_library(output_dir: Path):
         if len(junk_metadata) > 10:
             print(f"  ... and {len(junk_metadata) - 10} more")
         print()
+    
+    return {
+        'missing': missing_metadata,
+        'junk': junk_metadata
+    }
     
     if not missing_metadata and not junk_metadata:
         print("✓ All tracks have clean metadata")
