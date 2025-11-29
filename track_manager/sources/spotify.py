@@ -36,10 +36,10 @@ class SpotifyDownloader(BaseDownloader):
         client_secret = os.getenv("SPOTIPY_CLIENT_SECRET", "")
         
         # Fall back to config if not in environment
-        if not client_id and hasattr(config, 'spotdl'):
-            client_id = config.spotdl.get('client_id', '')
-        if not client_secret and hasattr(config, 'spotdl'):
-            client_secret = config.spotdl.get('client_secret', '')
+        if not client_id:
+            client_id = config.get('spotdl.client_id', '')
+        if not client_secret:
+            client_secret = config.get('spotdl.client_secret', '')
         
         downloader_settings = DownloaderOptions()
         downloader_settings['output'] = str(output_dir)
