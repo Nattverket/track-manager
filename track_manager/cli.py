@@ -37,6 +37,19 @@ class DefaultGroup(click.Group):
             return self.commands[self.default_command]
         
         return super(DefaultGroup, self).get_command(ctx, cmd_name)
+    
+    def parse_args(self, ctx, args):
+        # If no command is provided and we have a default command,
+        # treat the first argument as the URL for the default command
+        if not args and self.default_command is not None:
+            args.insert(0, self.default_command)
+        
+        # If the first argument is not a known command and we have a default command,
+        # treat it as the URL for the default command
+        if args and args[0] not in self.commands and self.default_command is not None:
+            args.insert(0, self.default_command)
+        
+        return super(DefaultGroup, self).parse_args(ctx, args)
 
 
 @click.group(cls=DefaultGroup, default_command='download', invoke_without_command=True)
