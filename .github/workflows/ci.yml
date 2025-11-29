@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
     - name: Checkout code
@@ -28,16 +28,30 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .[dev]
 
-    - name: Run tests with pytest
+    - name: Run unit tests
       run: |
-        python -m pytest tests/ -v --cov=track_manager --cov-report=xml
+        python -m pytest tests/unit/ -v
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
       with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev]
+
+    - name: Run integration tests
+      run: |
+        python -m pytest tests/integration/ -v
 
   lint:
     name: Lint and Code Quality
@@ -66,7 +80,6 @@ jobs:
 
     - name: Check for common security issues
       run: |
-        pip install bandit
         python -m bandit -r track_manager/ -f json -o bandit-report.json || true
 
   build:

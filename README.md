@@ -1,6 +1,6 @@
 # Track Manager
 
-[![Unit Tests](https://github.com/Nattverket/track-manager/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/Nattverket/track-manager/actions/workflows/unit-tests.yml)
+[![CI](https://github.com/Nattverket/track-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/Nattverket/track-manager/actions/workflows/ci.yml)
 
 Universal audio track downloader with smart duplicate detection and metadata management.
 
