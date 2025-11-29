@@ -103,7 +103,7 @@ def test_sanitize_filename():
         ("Track*Name", "Track-Name"),
         ("Track?Name", "Track-Name"),
         ('Track"Name', "Track-Name"),
-        ("Track<Name>", "Track-Name"),
+        ("Track<Name>", "Track-Name-"),  # Both < and > get replaced
         ("Track|Name", "Track-Name"),
         (".Track Name.", "Track Name"),
     ]

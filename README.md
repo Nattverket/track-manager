@@ -1,5 +1,7 @@
 # Track Manager
 
+[![Unit Tests](https://github.com/Nattverket/track-manager/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/Nattverket/track-manager/actions/workflows/unit-tests.yml)
+
 Universal audio track downloader with smart duplicate detection and metadata management.
 
 Download music from **any source** - Spotify, YouTube, SoundCloud, or direct URLs - with a single Python command.

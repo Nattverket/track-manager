@@ -87,12 +87,14 @@ def test_config_properties(sample_config_file):
 
 def test_config_missing_file():
     """Test handling of missing config file."""
+    Config.reset()  # Reset singleton for this test
     with pytest.raises(SystemExit):
         Config(Path("/nonexistent/config.yaml"))
 
 
 def test_config_empty_spotdl_path(tmp_path):
     """Test that empty spotdl path returns None."""
+    Config.reset()  # Reset singleton for this test
     config_content = """
 output_dir: "~/test/tracks"
 spotdl:

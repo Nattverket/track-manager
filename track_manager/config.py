@@ -25,6 +25,11 @@ class Config:
             cls._instance._initialized = False
         return cls._instance
     
+    @classmethod
+    def reset(cls):
+        """Reset singleton for testing."""
+        cls._instance = None
+
     def __init__(self, config_path: Optional[Path] = None):
         """Load configuration from YAML file."""
         if self._initialized:
