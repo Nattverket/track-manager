@@ -98,7 +98,11 @@ def create_test_audio_file():
 @pytest.fixture
 def mock_spotify_download():
     """Mock spotdl downloads."""
-    with patch('track_manager.sources.spotify.spotdl') as mock_spotdl:
+    with patch('track_manager.sources.spotify.Spotdl') as mock_spotdl:
+        mock_downloader = Mock()
+        mock_downloader.search.return_value = []
+        mock_downloader.download.return_value = None
+        mock_spotdl.return_value = mock_downloader
         yield mock_spotdl
 
 
