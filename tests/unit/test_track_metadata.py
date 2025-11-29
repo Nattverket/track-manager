@@ -4,17 +4,15 @@ import pytest
 from pathlib import Path
 import sys
 
-# Add scripts directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
-
-# Import after adding to path
-import track_metadata
+# Import from track_manager package
+from track_manager.metadata import has_junk_patterns, sanitize_filename
+from track_manager.duplicates import normalize_text, normalize_metadata
 
 
 def test_normalize_text_basic():
     """Test basic text normalization."""
-    assert track_metadata.normalize_text("Artist Name") == "artist name"
-    assert track_metadata.normalize_text("ARTIST NAME") == "artist name"
+    assert normalize_text("Artist Name") == "artist name"
+    assert normalize_text("ARTIST NAME") == "artist name"
 
 
 def test_normalize_text_removes_junk():
@@ -29,7 +27,7 @@ def test_normalize_text_removes_junk():
     ]
     
     for input_text, expected in test_cases:
-        assert track_metadata.normalize_text(input_text) == expected
+        assert normalize_text(input_text) == expected
 
 
 def test_normalize_text_feat_variations():
@@ -42,7 +40,7 @@ def test_normalize_text_feat_variations():
     ]
     
     for input_text, expected in test_cases:
-        assert track_metadata.normalize_text(input_text) == expected
+        assert normalize_text(input_text) == expected
 
 
 def test_normalize_text_artist_separators():
@@ -55,50 +53,49 @@ def test_normalize_text_artist_separators():
     ]
     
     for input_text, expected in test_cases:
-        assert track_metadata.normalize_text(input_text) == expected
+        assert normalize_text(input_text) == expected
 
 
 def test_normalize_text_whitespace():
     """Test that extra whitespace is cleaned up."""
-    assert track_metadata.normalize_text("Artist   Name") == "artist name"
-    assert track_metadata.normalize_text(" Artist Name ") == "artist name"
-    assert track_metadata.normalize_text("Artist\nName") == "artist name"
+    assert normalize_text("Artist   Name") == "artist name"
+    assert normalize_text(" Artist Name ") == "artist name"
+    assert normalize_text("Artist\nName") == "artist name"
 
 
 def test_normalize_metadata():
     """Test normalizing artist and title together."""
-    artist, title = track_metadata.normalize_metadata("Artist Name", "Track Title")
+    artist, title = normalize_metadata("Artist Name", "Track Title")
     assert artist == "artist name"
     assert title == "track title"
 
 
 def test_normalize_metadata_with_none():
     """Test normalizing with None values."""
-    artist, title = track_metadata.normalize_metadata(None, "Track Title")
+    artist, title = normalize_metadata(None, "Track Title")
     assert artist == ""
     assert title == "track title"
     
-    artist, title = track_metadata.normalize_metadata("Artist", None)
+    artist, title = normalize_metadata("Artist", None)
     assert artist == "artist"
     assert title == ""
 
 
 def test_has_junk_patterns():
     """Test junk pattern detection."""
-    assert track_metadata.has_junk_patterns("Track [Official Video]")
-    assert track_metadata.has_junk_patterns("Track (Official Audio)")
-    assert track_metadata.has_junk_patterns("Track [HD]")
-    assert track_metadata.has_junk_patterns("Track - Music Video")
+    assert has_junk_patterns("Track [Official Video]")
+    assert has_junk_patterns("Track (Official Audio)")
+    assert has_junk_patterns("Track [HD]")
+    assert has_junk_patterns("Track - Music Video")
     
-    assert not track_metadata.has_junk_patterns("Clean Track Name")
-    assert not track_metadata.has_junk_patterns("Artist - Title")
+    assert not has_junk_patterns("Clean Track Name")
+    assert not has_junk_patterns("Artist - Title")
 
 
 def test_sanitize_filename():
     """Test filename sanitization in apply_metadata_csv."""
-    # Import the function from apply_metadata_csv
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
-    from apply_metadata_csv import sanitize_filename
+    # Use the sanitize_filename function from metadata module
+    # (already imported at the top of the file)
     
     test_cases = [
         ("Artist/Name", "Artist-Name"),

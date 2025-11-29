@@ -5,10 +5,8 @@ from pathlib import Path
 import sys
 import os
 
-# Add scripts directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
-
-from config_reader import Config
+# Import from track_manager package
+from track_manager.config import Config
 
 
 @pytest.fixture
