@@ -36,13 +36,33 @@ class Config:
             return
 
         if config_path is None:
-            # Look for config.yaml in package parent directory
-            pkg_dir = Path(__file__).parent.parent
-            config_path = pkg_dir / "config.yaml"
+            # Look for config.yaml in multiple locations
+            config_path = self._find_config()
 
         self.config_path = config_path
         self.config = self._load_config()
         self._initialized = True
+
+    def _find_config(self) -> Path:
+        """Find config file in multiple locations."""
+        # 1. Current working directory (for development)
+        cwd_config = Path.cwd() / "config.yaml"
+        if cwd_config.exists():
+            return cwd_config
+
+        # 2. Package directory (for installed package)
+        pkg_dir = Path(__file__).parent.parent
+        pkg_config = pkg_dir / "config.yaml"
+        if pkg_config.exists():
+            return pkg_config
+
+        # 3. User home directory
+        home_config = Path.home() / ".config" / "track-manager" / "config.yaml"
+        if home_config.exists():
+            return home_config
+
+        # 4. Fallback to package directory (will show error with helpful message)
+        return pkg_config
 
     def _load_config(self) -> dict:
         """Load and parse config file."""

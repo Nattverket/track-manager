@@ -97,6 +97,12 @@ class SpotifyDownloader(BaseDownloader):
                 print(f"[{idx}/{track_count}] {song.artist} - {song.name}")
 
                 try:
+                    # Check for duplicates BEFORE downloading
+                    existing_duplicates = self._check_existing_duplicates(song, audio_format)
+                    if existing_duplicates:
+                        print(f"⏭️  Skipped: Already exists at {existing_duplicates[0].name}")
+                        continue
+
                     # Download song
                     result = self.spotdl.download(song)
 
@@ -146,15 +152,25 @@ class SpotifyDownloader(BaseDownloader):
         """
         from datetime import datetime, timedelta
 
-        # spotdl creates files with various patterns
-        # Look for recently created files (within last 60 seconds)
-        cutoff_time = datetime.now().timestamp() - 60
+        # First, try to download the song and get the exact file path from spotdl
+        try:
+            result = self.spotdl.download(song)
+            if result and len(result) >= 2:
+                file_path = result[1]
+                if isinstance(file_path, Path) and file_path.exists():
+                    return file_path
+        except Exception:
+            # If spotdl download fails, fall back to file search
+            pass
 
-        # Search for files containing the song title
+        # Fallback: search for files containing the song title
+        # Use a more reasonable time window (10 minutes) to account for existing files
+        cutoff_time = datetime.now().timestamp() - 600  # 10 minutes
         title_part = self.sanitize_filename(song.name).lower()
 
+        # Search in the expected format first
         for file_path in self.output_dir.glob(f"*.{format}"):
-            # Check if file was created recently
+            # Check if file was created recently enough
             if file_path.stat().st_mtime > cutoff_time:
                 # Check if title appears in filename
                 if title_part in file_path.stem.lower():
@@ -167,7 +183,41 @@ class SpotifyDownloader(BaseDownloader):
                     if title_part in file_path.stem.lower():
                         return file_path
 
+        # Final fallback: check for any file with the title, regardless of timestamp
+        for file_path in self.output_dir.glob(f"*.{format}"):
+            if title_part in file_path.stem.lower():
+                return file_path
+
+        if format != "mp3":
+            for file_path in self.output_dir.glob("*.mp3"):
+                if title_part in file_path.stem.lower():
+                    return file_path
+
         return None
+
+    def _check_existing_duplicates(self, song: Song, format: str) -> list:
+        """Check if track already exists in library before downloading.
+
+        Args:
+            song: Song object
+            format: Expected format
+
+        Returns:
+            List of existing duplicate file paths, empty if no duplicates
+        """
+        from ..duplicates import find_duplicates
+
+        # Use Spotify metadata for duplicate check
+        artist = song.artist
+        title = song.name
+
+        if not artist or not title:
+            return []
+
+        # Check for existing duplicates
+        duplicates = find_duplicates(artist, title, self.output_dir)
+        
+        return duplicates
 
     def _process_download(self, file_path: Path, song: Song, format: str) -> bool:
         """Process a downloaded file.
