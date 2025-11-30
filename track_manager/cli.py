@@ -11,6 +11,7 @@ except ImportError:
     print("Install with: pip install click", file=sys.stderr)
     sys.exit(1)
 
+from . import __version__
 from .config import Config
 from .downloader import Downloader
 
