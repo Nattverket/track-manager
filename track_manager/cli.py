@@ -17,9 +17,9 @@ from .downloader import Downloader
 
 class DefaultGroup(click.Group):
     """Click group that defaults to a specified command when no command is given."""
-    
+
     def __init__(self, *args, **kwargs):
-        self.default_command = kwargs.pop('default_command', None)
+        self.default_command = kwargs.pop("default_command", None)
         super(DefaultGroup, self).__init__(*args, **kwargs)
 
     def get_command(self, ctx, cmd_name):
@@ -28,31 +28,31 @@ class DefaultGroup(click.Group):
         if not cmd_name and self.default_command is not None:
             # No command provided, use default
             return self.commands[self.default_command]
-        
+
         # If the command name is not found and we have a default command,
         # treat the command name as the URL for the default command
         if cmd_name not in self.commands and self.default_command is not None:
             # Prepend the command name (URL) to the args for the default command
             ctx.args = [cmd_name] + ctx.args
             return self.commands[self.default_command]
-        
+
         return super(DefaultGroup, self).get_command(ctx, cmd_name)
-    
+
     def parse_args(self, ctx, args):
         # If no command is provided and we have a default command,
         # treat the first argument as the URL for the default command
         if not args and self.default_command is not None:
             args.insert(0, self.default_command)
-        
+
         # If the first argument is not a known command and we have a default command,
         # treat it as the URL for the default command
         if args and args[0] not in self.commands and self.default_command is not None:
             args.insert(0, self.default_command)
-        
+
         return super(DefaultGroup, self).parse_args(ctx, args)
 
 
-@click.group(cls=DefaultGroup, default_command='download', invoke_without_command=True)
+@click.group(cls=DefaultGroup, default_command="download", invoke_without_command=True)
 @click.version_option()
 @click.pass_context
 def cli(ctx):
@@ -64,29 +64,32 @@ def cli(ctx):
 
 
 @cli.command()
-@click.argument('url')
-@click.option('--format', '-f', 
-              type=click.Choice(['auto', 'm4a', 'mp3']),
-              default='auto',
-              help='Output format (default: auto)')
-@click.option('--output', '-o',
-              type=click.Path(),
-              help='Output directory (overrides config)')
+@click.argument("url")
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice(["auto", "m4a", "mp3"]),
+    default="auto",
+    help="Output format (default: auto)",
+)
+@click.option(
+    "--output", "-o", type=click.Path(), help="Output directory (overrides config)"
+)
 def download(url: str, format: str, output: Optional[str]):
     """Download track(s) from URL.
-    
+
     Supports: Spotify, YouTube, SoundCloud, and direct URLs.
     """
     config = Config()
-    
+
     # Override output directory if specified
     if output:
         output_dir = Path(output)
     else:
         output_dir = config.output_dir
-    
+
     downloader = Downloader(config, output_dir)
-    
+
     try:
         downloader.download(url, format)
     except KeyboardInterrupt:
@@ -97,106 +100,114 @@ def download(url: str, format: str, output: Optional[str]):
         sys.exit(1)
 
 
-@cli.command('check-duplicates')
-@click.option('--file', '-f',
-              type=click.Path(exists=True),
-              help='Check specific file for duplicates')
+@cli.command("check-duplicates")
+@click.option(
+    "--file",
+    "-f",
+    type=click.Path(exists=True),
+    help="Check specific file for duplicates",
+)
 def check_duplicates(file: Optional[str]):
     """Check for duplicate tracks in library."""
-    from .duplicates import scan_library, check_file
-    
+    from .duplicates import check_file, scan_library
+
     config = Config()
-    
+
     if file:
         check_file(Path(file), config.output_dir)
     else:
         scan_library(config.output_dir)
 
 
-@cli.command('verify-metadata')
+@cli.command("verify-metadata")
 def verify_metadata():
     """Verify metadata quality in library."""
     from .metadata import verify_library
-    
+
     config = Config()
     verify_library(config.output_dir)
 
 
-@cli.command('apply-metadata')
-@click.option('--show', is_flag=True,
-              help='Show pending reviews without applying')
+@cli.command("apply-metadata")
+@click.option("--show", is_flag=True, help="Show pending reviews without applying")
 def apply_metadata(show: bool):
     """Apply metadata corrections from CSV."""
-    from .metadata import show_pending_reviews, apply_metadata_csv
-    
+    from .metadata import apply_metadata_csv, show_pending_reviews
+
     config = Config()
-    
+
     if show:
         show_pending_reviews(config.metadata_csv)
     else:
         apply_metadata_csv(config.metadata_csv)
 
 
-@cli.command('check-setup')
+@cli.command("check-setup")
 def check_setup():
     """Verify all dependencies are installed."""
     click.echo("🔍 Checking track-manager dependencies...\n")
-    
+
     all_ok = True
-    
+
     # Check yt-dlp
     try:
         import yt_dlp
+
         click.echo(f"✅ yt-dlp: {yt_dlp.version.__version__}")
     except ImportError:
         click.echo("❌ yt-dlp: Not installed")
         click.echo("   Install: pip install yt-dlp")
         all_ok = False
-    
+
     # Check spotdl
     try:
         import spotdl
+
         click.echo("✅ spotdl: Installed")
     except ImportError:
         click.echo("⚠️  spotdl: Not installed (optional, needed for Spotify)")
         click.echo("   Install: pip install spotdl")
-    
+
     # Check requests
     try:
         import requests
+
         click.echo(f"✅ requests: {requests.__version__}")
     except ImportError:
         click.echo("❌ requests: Not installed")
         click.echo("   Install: pip install requests")
         all_ok = False
-    
+
     # Check mutagen
     try:
         import mutagen
+
         click.echo(f"✅ mutagen: {mutagen.version_string}")
     except ImportError:
         click.echo("❌ mutagen: Not installed")
         click.echo("   Install: pip install mutagen")
         all_ok = False
-    
+
     # Check PyYAML
     try:
         import yaml
+
         click.echo("✅ PyYAML: Installed")
     except ImportError:
         click.echo("❌ PyYAML: Not installed")
         click.echo("   Install: pip install pyyaml")
         all_ok = False
-    
+
     # Check click
     try:
         import click as _
+
         click.echo(f"✅ click: {click.__version__}")
     except ImportError:
         click.echo("❌ click: Not installed")
         click.echo("   Install: pip install click")
         all_ok = False
-    
+
     # Check config
     try:
         config = Config()
@@ -204,9 +215,9 @@ def check_setup():
     except SystemExit:
         click.echo("⚠️  Configuration: config.yaml not found")
         click.echo("   Copy config.example.yaml to config.yaml")
-    
+
     click.echo()
-    
+
     if all_ok:
         click.echo("🎉 All required dependencies are installed!")
         click.echo("\nNext steps:")
@@ -222,5 +233,5 @@ def main():
     cli()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

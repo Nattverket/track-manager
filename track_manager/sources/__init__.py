@@ -1,8 +1,5 @@
 """Source-specific downloader modules."""
 
-from . import spotify
-from . import youtube
-from . import soundcloud
-from . import direct
+from . import direct, soundcloud, spotify, youtube
 
-__all__ = ['spotify', 'youtube', 'soundcloud', 'direct']
+__all__ = ["spotify", "youtube", "soundcloud", "direct"]

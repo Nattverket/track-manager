@@ -1,9 +1,10 @@
 """Unit tests for config_reader module."""
 
-import pytest
-from pathlib import Path
-import sys
 import os
+import sys
+from pathlib import Path
+
+import pytest
 
 # Import from track_manager package
 from track_manager.config import Config
@@ -69,16 +70,16 @@ def test_config_get_with_default(sample_config_file):
 def test_config_properties(sample_config_file):
     """Test config property accessors."""
     config = Config(sample_config_file)
-    
+
     assert isinstance(config.output_dir, Path)
     assert "test/tracks" in str(config.output_dir)
-    
+
     assert isinstance(config.failed_log, Path)
     assert "failed.txt" in str(config.failed_log)
-    
+
     assert isinstance(config.metadata_csv, Path)
     assert "metadata.csv" in str(config.metadata_csv)
-    
+
     assert config.spotdl_path == "/usr/local/bin/spotdl"
     assert config.default_format == "m4a"
     assert config.playlist_threshold == 100
@@ -102,6 +103,6 @@ spotdl:
 """
     config_file = tmp_path / "config.yaml"
     config_file.write_text(config_content)
-    
+
     config = Config(config_file)
     assert config.spotdl_path is None

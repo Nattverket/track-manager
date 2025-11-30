@@ -15,16 +15,16 @@ except ImportError:
 
 class Config:
     """Track manager configuration."""
-    
+
     _instance = None
-    
+
     def __new__(cls, config_path: Optional[Path] = None):
         """Singleton pattern for config."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
-    
+
     @classmethod
     def reset(cls):
         """Reset singleton for testing."""
@@ -34,37 +34,46 @@ class Config:
         """Load configuration from YAML file."""
         if self._initialized:
             return
-            
+
         if config_path is None:
             # Look for config.yaml in package parent directory
             pkg_dir = Path(__file__).parent.parent
             config_path = pkg_dir / "config.yaml"
-        
+
         self.config_path = config_path
         self.config = self._load_config()
         self._initialized = True
-    
+
     def _load_config(self) -> dict:
         """Load and parse config file."""
         if not self.config_path.exists():
             # Try config.example.yaml as fallback
             example_path = self.config_path.parent / "config.example.yaml"
             if example_path.exists():
-                print(f"Warning: config.yaml not found, using config.example.yaml", file=sys.stderr)
+                print(
+                    f"Warning: config.yaml not found, using config.example.yaml",
+                    file=sys.stderr,
+                )
                 self.config_path = example_path
             else:
-                print(f"Error: Configuration file not found: {self.config_path}", file=sys.stderr)
-                print(f"Copy config.example.yaml to config.yaml and customize", file=sys.stderr)
+                print(
+                    f"Error: Configuration file not found: {self.config_path}",
+                    file=sys.stderr,
+                )
+                print(
+                    f"Copy config.example.yaml to config.yaml and customize",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
-        
+
         with open(self.config_path) as f:
             config = yaml.safe_load(f)
-        
+
         # Expand home directory in paths
         self._expand_paths(config)
-        
+
         return config
-    
+
     def _expand_paths(self, config: dict):
         """Expand ~ in path values."""
         for key, value in config.items():
@@ -72,51 +81,57 @@ class Config:
                 config[key] = os.path.expanduser(value)
             elif isinstance(value, dict):
                 self._expand_paths(value)
-    
+
     def get(self, key: str, default: Any = None) -> Any:
         """Get config value by dot-separated key."""
         keys = key.split(".")
         value = self.config
-        
+
         for k in keys:
             if isinstance(value, dict) and k in value:
                 value = value[k]
             else:
                 return default
-        
+
         return value
-    
+
     @property
     def output_dir(self) -> Path:
         """Get output directory path."""
         return Path(self.get("output_dir", "~/Documents/projects/DJ/tracks"))
-    
+
     @property
     def failed_log(self) -> Path:
         """Get failed downloads log path."""
-        return Path(self.get("failed_log", "~/Documents/projects/DJ/failed-downloads.txt"))
-    
+        return Path(
+            self.get("failed_log", "~/Documents/projects/DJ/failed-downloads.txt")
+        )
+
     @property
     def metadata_csv(self) -> Path:
         """Get metadata review CSV path."""
-        return Path(self.get("metadata_csv", "~/Documents/projects/DJ/tracks-metadata-review.csv"))
-    
+        return Path(
+            self.get(
+                "metadata_csv", "~/Documents/projects/DJ/tracks-metadata-review.csv"
+            )
+        )
+
     @property
     def spotdl_path(self) -> Optional[str]:
         """Get spotdl executable path."""
         path = self.get("spotdl.path", "")
         return path if path else None
-    
+
     @property
     def default_format(self) -> str:
         """Get default download format."""
         return self.get("downloads.default_format", "auto")
-    
+
     @property
     def playlist_threshold(self) -> int:
         """Get playlist confirmation threshold."""
         return self.get("downloads.playlist_confirmation_threshold", 50)
-    
+
     @property
     def duplicate_handling(self) -> str:
         """Get duplicate handling mode."""
