@@ -22,12 +22,15 @@ class TestSpotifyDuplicateDetection:
         self.config = MagicMock(spec=Config)
         self.config.output_dir = self.output_dir
         self.config.duplicate_handling = "skip"
+        self.config.playlist_threshold = 50
+        self.config.get = MagicMock(return_value="")
 
     def teardown_method(self):
         """Clean up test fixtures."""
         self.temp_dir.cleanup()
 
-    def test_check_existing_duplicates_no_duplicates(self):
+    @patch("track_manager.sources.spotify.Spotdl")
+    def test_check_existing_duplicates_no_duplicates(self, mock_spotdl):
         """Test duplicate check when no duplicates exist."""
         downloader = SpotifyDownloader(self.config, self.output_dir)
         
@@ -42,7 +45,8 @@ class TestSpotifyDuplicateDetection:
             duplicates = downloader._check_existing_duplicates(song, "m4a")
             assert duplicates == []
 
-    def test_check_existing_duplicates_with_duplicates(self):
+    @patch("track_manager.sources.spotify.Spotdl")
+    def test_check_existing_duplicates_with_duplicates(self, mock_spotdl):
         """Test duplicate check when duplicates exist."""
         downloader = SpotifyDownloader(self.config, self.output_dir)
         
@@ -61,7 +65,8 @@ class TestSpotifyDuplicateDetection:
             duplicates = downloader._check_existing_duplicates(song, "m4a")
             assert duplicates == [duplicate_file]
 
-    def test_check_existing_duplicates_missing_metadata(self):
+    @patch("track_manager.sources.spotify.Spotdl")
+    def test_check_existing_duplicates_missing_metadata(self, mock_spotdl):
         """Test duplicate check with missing metadata."""
         downloader = SpotifyDownloader(self.config, self.output_dir)
         
@@ -73,10 +78,13 @@ class TestSpotifyDuplicateDetection:
         duplicates = downloader._check_existing_duplicates(song, "m4a")
         assert duplicates == []
 
-    @patch("track_manager.sources.spotify.SpotifyDownloader._check_existing_duplicates")
-    @patch("track_manager.sources.spotify.SpotifyDownloader.spotdl")
-    def test_download_skips_existing_track(self, mock_spotdl, mock_check_duplicates):
+    @patch("track_manager.sources.spotify.Spotdl")
+    def test_download_skips_existing_track(self, mock_spotdl_class):
         """Test that download skips tracks that already exist."""
+        # Configure the mocked Spotdl instance
+        mock_spotdl = MagicMock()
+        mock_spotdl_class.return_value = mock_spotdl
+        
         downloader = SpotifyDownloader(self.config, self.output_dir)
         
         # Mock song object
@@ -88,25 +96,26 @@ class TestSpotifyDuplicateDetection:
         # Mock duplicate check to return existing file
         duplicate_file = self.output_dir / "existing.mp3"
         duplicate_file.touch()
-        mock_check_duplicates.return_value = [duplicate_file]
         
         # Mock spotdl search
         mock_spotdl.search.return_value = [song]
         
-        # Run download
-        downloader.download("https://open.spotify.com/track/test")
-        
-        # Verify spotdl.download was NOT called
-        mock_spotdl.download.assert_not_called()
+        with patch.object(downloader, "_check_existing_duplicates") as mock_check:
+            mock_check.return_value = [duplicate_file]
+            
+            # Run download
+            downloader.download("https://open.spotify.com/track/test")
+            
+            # Verify spotdl.download was NOT called
+            mock_spotdl.download.assert_not_called()
 
-    @patch("track_manager.sources.spotify.SpotifyDownloader._check_existing_duplicates")
-    @patch("track_manager.sources.spotify.SpotifyDownloader.spotdl")
-    @patch("track_manager.sources.spotify.SpotifyDownloader._find_downloaded_file")
-    @patch("track_manager.sources.spotify.SpotifyDownloader._process_download")
-    def test_download_proceeds_when_no_duplicates(
-        self, mock_process, mock_find, mock_spotdl, mock_check_duplicates
-    ):
+    @patch("track_manager.sources.spotify.Spotdl")
+    def test_download_proceeds_when_no_duplicates(self, mock_spotdl_class):
         """Test that download proceeds when no duplicates exist."""
+        # Configure the mocked Spotdl instance
+        mock_spotdl = MagicMock()
+        mock_spotdl_class.return_value = mock_spotdl
+        
         downloader = SpotifyDownloader(self.config, self.output_dir)
         
         # Mock song object
@@ -115,27 +124,30 @@ class TestSpotifyDuplicateDetection:
         song.name = "Test Title"
         song.url = "https://open.spotify.com/track/test"
         
-        # Mock no duplicates
-        mock_check_duplicates.return_value = []
-        
         # Mock successful download
         mock_spotdl.search.return_value = [song]
         mock_spotdl.download.return_value = (song, self.output_dir / "new.mp3")
-        mock_find.return_value = self.output_dir / "new.mp3"
-        mock_process.return_value = True
         
-        # Run download
-        downloader.download("https://open.spotify.com/track/test")
-        
-        # Verify spotdl.download WAS called
-        mock_spotdl.download.assert_called_once_with(song)
+        with patch.object(downloader, "_check_existing_duplicates") as mock_check:
+            with patch.object(downloader, "_find_downloaded_file") as mock_find:
+                with patch.object(downloader, "_process_download") as mock_process:
+                    mock_check.return_value = []
+                    mock_find.return_value = self.output_dir / "new.mp3"
+                    mock_process.return_value = True
+                    
+                    # Run download
+                    downloader.download("https://open.spotify.com/track/test")
+                    
+                    # Verify spotdl.download WAS called
+                    mock_spotdl.download.assert_called_once_with(song)
 
-    @patch("track_manager.sources.spotify.SpotifyDownloader._check_existing_duplicates")
-    @patch("track_manager.sources.spotify.SpotifyDownloader.spotdl")
-    def test_download_handles_multiple_tracks_with_duplicates(
-        self, mock_spotdl, mock_check_duplicates
-    ):
+    @patch("track_manager.sources.spotify.Spotdl")
+    def test_download_handles_multiple_tracks_with_duplicates(self, mock_spotdl_class):
         """Test download with multiple tracks, some duplicates."""
+        # Configure the mocked Spotdl instance
+        mock_spotdl = MagicMock()
+        mock_spotdl_class.return_value = mock_spotdl
+        
         downloader = SpotifyDownloader(self.config, self.output_dir)
         
         # Mock multiple songs
@@ -152,10 +164,6 @@ class TestSpotifyDuplicateDetection:
         # Mock duplicate check - first song exists, second doesn't
         duplicate_file = self.output_dir / "existing.mp3"
         duplicate_file.touch()
-        mock_check_duplicates.side_effect = [
-            [duplicate_file],  # First song has duplicate
-            [],  # Second song no duplicate
-        ]
         
         # Mock spotdl search
         mock_spotdl.search.return_value = [song1, song2]
@@ -164,23 +172,29 @@ class TestSpotifyDuplicateDetection:
         mock_spotdl.download.return_value = (song2, self.output_dir / "new.mp3")
         
         # Mock file processing
-        with patch.object(downloader, "_find_downloaded_file") as mock_find:
-            with patch.object(downloader, "_process_download") as mock_process:
-                mock_find.return_value = self.output_dir / "new.mp3"
-                mock_process.return_value = True
-                
-                # Run download
-                downloader.download("https://open.spotify.com/playlist/test")
-                
-                # Verify spotdl.download was called only for second song
-                mock_spotdl.download.assert_called_once_with(song2)
+        with patch.object(downloader, "_check_existing_duplicates") as mock_check:
+            with patch.object(downloader, "_find_downloaded_file") as mock_find:
+                with patch.object(downloader, "_process_download") as mock_process:
+                    mock_check.side_effect = [
+                        [duplicate_file],  # First song has duplicate
+                        [],  # Second song no duplicate
+                    ]
+                    mock_find.return_value = self.output_dir / "new.mp3"
+                    mock_process.return_value = True
+                    
+                    # Run download
+                    downloader.download("https://open.spotify.com/playlist/test")
+                    
+                    # Verify spotdl.download was called only for second song
+                    mock_spotdl.download.assert_called_once_with(song2)
 
-    @patch("track_manager.sources.spotify.SpotifyDownloader._check_existing_duplicates")
-    @patch("track_manager.sources.spotify.SpotifyDownloader.spotdl")
-    def test_download_handles_empty_duplicate_check(
-        self, mock_spotdl, mock_check_duplicates
-    ):
+    @patch("track_manager.sources.spotify.Spotdl")
+    def test_download_handles_empty_duplicate_check(self, mock_spotdl_class):
         """Test download when duplicate check returns empty list."""
+        # Configure the mocked Spotdl instance
+        mock_spotdl = MagicMock()
+        mock_spotdl_class.return_value = mock_spotdl
+        
         downloader = SpotifyDownloader(self.config, self.output_dir)
         
         # Mock song object
@@ -189,21 +203,20 @@ class TestSpotifyDuplicateDetection:
         song.name = "Test Title"
         song.url = "https://open.spotify.com/track/test"
         
-        # Mock empty duplicate list
-        mock_check_duplicates.return_value = []
-        
         # Mock successful download
         mock_spotdl.search.return_value = [song]
         mock_spotdl.download.return_value = (song, self.output_dir / "new.mp3")
         
         # Mock file processing
-        with patch.object(downloader, "_find_downloaded_file") as mock_find:
-            with patch.object(downloader, "_process_download") as mock_process:
-                mock_find.return_value = self.output_dir / "new.mp3"
-                mock_process.return_value = True
-                
-                # Run download
-                downloader.download("https://open.spotify.com/track/test")
-                
-                # Verify track was downloaded
-                mock_spotdl.download.assert_called_once_with(song)
+        with patch.object(downloader, "_check_existing_duplicates") as mock_check:
+            with patch.object(downloader, "_find_downloaded_file") as mock_find:
+                with patch.object(downloader, "_process_download") as mock_process:
+                    mock_check.return_value = []
+                    mock_find.return_value = self.output_dir / "new.mp3"
+                    mock_process.return_value = True
+                    
+                    # Run download
+                    downloader.download("https://open.spotify.com/track/test")
+                    
+                    # Verify track was downloaded
+                    mock_spotdl.download.assert_called_once_with(song)

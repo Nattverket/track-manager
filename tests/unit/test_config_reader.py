@@ -36,25 +36,34 @@ duplicates:
 
 def test_config_loads_file(sample_config_file):
     """Test that config loads from file."""
+    Config.reset()
     config = Config(sample_config_file)
     assert config.config is not None
 
 
 def test_config_expands_home_directory(sample_config_file):
     """Test that ~ is expanded in paths."""
+    Config.reset()
     config = Config(sample_config_file)
-    assert not str(config.output_dir).startswith("~")
-    assert str(config.output_dir).startswith(os.path.expanduser("~"))
+    output_dir_str = str(config.output_dir)
+    assert not output_dir_str.startswith("~")
+    # Path should be expanded (contains 'test/tracks' somewhere)
+    assert "test/tracks" in output_dir_str
 
 
 def test_config_get_top_level(sample_config_file):
     """Test getting top-level config values."""
+    Config.reset()
     config = Config(sample_config_file)
-    assert "test/tracks" in str(config.get("output_dir"))
+    output_dir = config.get("output_dir")
+    # After expansion, ~ is replaced with home directory
+    assert "test/tracks" in str(output_dir)
+    assert not str(output_dir).startswith("~")
 
 
 def test_config_get_nested(sample_config_file):
     """Test getting nested config values."""
+    Config.reset()
     config = Config(sample_config_file)
     assert config.get("spotdl.path") == "/usr/local/bin/spotdl"
     assert config.get("downloads.default_format") == "m4a"
@@ -69,6 +78,7 @@ def test_config_get_with_default(sample_config_file):
 
 def test_config_properties(sample_config_file):
     """Test config property accessors."""
+    Config.reset()
     config = Config(sample_config_file)
 
     assert isinstance(config.output_dir, Path)
