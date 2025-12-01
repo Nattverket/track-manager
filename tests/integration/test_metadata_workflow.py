@@ -6,8 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from track_manager.metadata import (apply_metadata_csv, flag_for_review,
-                                    verify_library)
+from track_manager.metadata import apply_metadata_csv, flag_for_review, verify_library
 
 
 class TestMetadataWorkflow:
@@ -116,7 +115,7 @@ class TestMetadataWorkflow:
             audio = MP3(str(new_file))
         else:
             audio = MP3(str(test_file))
-            
+
         assert audio.get("TPE1", [None])[0] == "Correct Artist"
         assert audio.get("TIT2", [None])[0] == "Correct Title"
 
@@ -189,7 +188,7 @@ class TestMetadataWorkflow:
             audio1 = MP3(str(new_file1))
         else:
             audio1 = MP3(str(file1))
-            
+
         assert audio1.get("TPE1", [None])[0] == "New Artist1"
 
         audio2 = MP3(str(file2))

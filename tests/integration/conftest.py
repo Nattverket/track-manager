@@ -105,8 +105,9 @@ def auto_mock_spotify():
         mock_spotify_instance = Mock()
         mock_spotify_instance.download = Mock(return_value=None)
         mock_spotify_class.return_value = mock_spotify_instance
-        
+
         yield mock_spotify_class
+
 
 @pytest.fixture
 def mock_spotify_download():
@@ -116,7 +117,7 @@ def mock_spotify_download():
         mock_spotify_instance = Mock()
         mock_spotify_instance.download = Mock(return_value=None)
         mock_spotify_class.return_value = mock_spotify_instance
-        
+
         yield mock_spotify_class
 
 

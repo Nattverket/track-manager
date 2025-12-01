@@ -98,9 +98,13 @@ class SpotifyDownloader(BaseDownloader):
 
                 try:
                     # Check for duplicates BEFORE downloading
-                    existing_duplicates = self._check_existing_duplicates(song, audio_format)
+                    existing_duplicates = self._check_existing_duplicates(
+                        song, audio_format
+                    )
                     if existing_duplicates:
-                        print(f"⏭️  Skipped: Already exists at {existing_duplicates[0].name}")
+                        print(
+                            f"⏭️  Skipped: Already exists at {existing_duplicates[0].name}"
+                        )
                         continue
 
                     # Download song
@@ -216,7 +220,7 @@ class SpotifyDownloader(BaseDownloader):
 
         # Check for existing duplicates
         duplicates = find_duplicates(artist, title, self.output_dir)
-        
+
         return duplicates
 
     def _process_download(self, file_path: Path, song: Song, format: str) -> bool:

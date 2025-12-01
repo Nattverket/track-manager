@@ -260,15 +260,15 @@ def update_metadata(file_path: Path, artist: str, title: str) -> bool:
     """
     try:
         # Update metadata based on file format
-        if file_path.suffix.lower() == '.mp3':
+        if file_path.suffix.lower() == ".mp3":
             # Use ID3 tags for MP3 files
+            from mutagen.id3 import ID3, TIT2, TPE1
             from mutagen.mp3 import MP3
-            from mutagen.id3 import ID3, TPE1, TIT2
-            
+
             audio = MP3(str(file_path), ID3=ID3)
             if not audio.tags:
                 audio.add_tags()
-            
+
             # Update ID3 tags
             audio.tags.add(TPE1(encoding=3, text=artist))
             audio.tags.add(TIT2(encoding=3, text=title))

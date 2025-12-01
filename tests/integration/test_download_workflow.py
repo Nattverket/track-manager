@@ -111,18 +111,26 @@ class TestDownloadWorkflow:
             assert detected == expected_source, f"Failed for {url}"
 
     def test_format_selection(
-        self, test_config, temp_output_dir, create_test_audio_file, mock_spotify_download
+        self,
+        test_config,
+        temp_output_dir,
+        create_test_audio_file,
+        mock_spotify_download,
     ):
         """Test format selection works correctly."""
         downloader = Downloader(test_config, temp_output_dir)
 
         # Test explicit format
         downloader.download("https://open.spotify.com/track/123", "mp3")
-        mock_spotify_download.return_value.download.assert_called_with("https://open.spotify.com/track/123", "mp3")
+        mock_spotify_download.return_value.download.assert_called_with(
+            "https://open.spotify.com/track/123", "mp3"
+        )
 
         # Test auto format
         downloader.download("https://open.spotify.com/track/456", "auto")
-        mock_spotify_download.return_value.download.assert_called_with("https://open.spotify.com/track/456", "auto")
+        mock_spotify_download.return_value.download.assert_called_with(
+            "https://open.spotify.com/track/456", "auto"
+        )
 
     def test_custom_output_directory(self, test_config, tmp_path):
         """Test custom output directory is used."""

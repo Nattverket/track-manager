@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from track_manager.duplicates import normalize_metadata, normalize_text
+
 # Import from track_manager package
 from track_manager.metadata import has_junk_patterns, sanitize_filename
 

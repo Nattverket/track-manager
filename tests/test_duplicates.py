@@ -2,16 +2,16 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from track_manager.duplicates import (
-    normalize_text,
-    extract_metadata,
-    normalize_metadata,
-    find_duplicates,
     check_file_duplicate,
+    extract_metadata,
+    find_duplicates,
+    normalize_metadata,
+    normalize_text,
     scan_library,
 )
 
@@ -56,16 +56,16 @@ class TestExtractMetadata:
         """Test successful metadata extraction."""
         # Create a mock that properly simulates mutagen behavior
         mock_audio = MagicMock()
-        
+
         # Mock the bool check - mutagen file should be truthy
         mock_audio.__bool__.return_value = True
-        
+
         # Mock the get method to return our test values
         mock_audio.get.side_effect = lambda key, default=None: {
             "artist": ["Test Artist"],
-            "title": ["Test Title"]
+            "title": ["Test Title"],
         }.get(key, default)
-        
+
         # Mock the 'in' operator for metadata field checks
         mock_audio.__contains__.side_effect = lambda key: key in ["artist", "title"]
 
@@ -104,9 +104,7 @@ class TestNormalizeMetadata:
 
     def test_normalize_metadata_with_junk(self):
         """Test metadata normalization with junk patterns."""
-        artist, title = normalize_metadata(
-            "Artist [Official]", "Title (Audio) [HD]"
-        )
+        artist, title = normalize_metadata("Artist [Official]", "Title (Audio) [HD]")
         assert artist == "artist"
         assert title == "title"
 
@@ -133,7 +131,7 @@ class TestFindDuplicates:
             # Create test files
             (temp_path / "file1.mp3").touch()
             (temp_path / "file2.mp3").touch()
-            
+
             with patch("track_manager.duplicates.extract_metadata") as mock_extract:
                 mock_extract.side_effect = [
                     ("Artist1", "Title1"),
@@ -151,7 +149,7 @@ class TestFindDuplicates:
             file2 = temp_path / "file2.mp3"
             file1.touch()
             file2.touch()
-            
+
             with patch("track_manager.duplicates.extract_metadata") as mock_extract:
                 mock_extract.side_effect = [
                     ("Artist", "Title"),
@@ -171,7 +169,9 @@ class TestCheckFileDuplicate:
                 mock_extract.return_value = ("Artist", "Title")
                 with patch("track_manager.duplicates.find_duplicates") as mock_find:
                     mock_find.return_value = []
-                    result = check_file_duplicate(Path("test.mp3"), Path(temp_dir), "interactive")
+                    result = check_file_duplicate(
+                        Path("test.mp3"), Path(temp_dir), "interactive"
+                    )
                     assert result is False
 
     def test_check_file_duplicate_skip_mode(self):
@@ -181,7 +181,9 @@ class TestCheckFileDuplicate:
                 mock_extract.return_value = ("Artist", "Title")
                 with patch("track_manager.duplicates.find_duplicates") as mock_find:
                     mock_find.return_value = [Path("existing.mp3")]
-                    result = check_file_duplicate(Path("test.mp3"), Path(temp_dir), "skip")
+                    result = check_file_duplicate(
+                        Path("test.mp3"), Path(temp_dir), "skip"
+                    )
                     assert result is True
 
     def test_check_file_duplicate_keep_mode(self):
@@ -191,7 +193,9 @@ class TestCheckFileDuplicate:
                 mock_extract.return_value = ("Artist", "Title")
                 with patch("track_manager.duplicates.find_duplicates") as mock_find:
                     mock_find.return_value = [Path("existing.mp3")]
-                    result = check_file_duplicate(Path("test.mp3"), Path(temp_dir), "keep")
+                    result = check_file_duplicate(
+                        Path("test.mp3"), Path(temp_dir), "keep"
+                    )
                     assert result is False
 
     @patch("builtins.input")
@@ -203,7 +207,9 @@ class TestCheckFileDuplicate:
                 mock_extract.return_value = ("Artist", "Title")
                 with patch("track_manager.duplicates.find_duplicates") as mock_find:
                     mock_find.return_value = [Path("existing.mp3")]
-                    result = check_file_duplicate(Path("test.mp3"), Path(temp_dir), "interactive")
+                    result = check_file_duplicate(
+                        Path("test.mp3"), Path(temp_dir), "interactive"
+                    )
                     assert result is True
 
     @patch("builtins.input")
@@ -215,7 +221,9 @@ class TestCheckFileDuplicate:
                 mock_extract.return_value = ("Artist", "Title")
                 with patch("track_manager.duplicates.find_duplicates") as mock_find:
                     mock_find.return_value = [Path("existing.mp3")]
-                    result = check_file_duplicate(Path("test.mp3"), Path(temp_dir), "interactive")
+                    result = check_file_duplicate(
+                        Path("test.mp3"), Path(temp_dir), "interactive"
+                    )
                     assert result is False
 
     @patch("builtins.input")
@@ -227,12 +235,14 @@ class TestCheckFileDuplicate:
             # Create the existing file that will be deleted
             existing_file = temp_path / "existing.mp3"
             existing_file.touch()
-            
+
             with patch("track_manager.duplicates.extract_metadata") as mock_extract:
                 mock_extract.return_value = ("Artist", "Title")
                 with patch("track_manager.duplicates.find_duplicates") as mock_find:
                     mock_find.return_value = [existing_file]
-                    result = check_file_duplicate(Path("test.mp3"), temp_path, "interactive")
+                    result = check_file_duplicate(
+                        Path("test.mp3"), temp_path, "interactive"
+                    )
                     assert result is False
                     # Verify the existing file was deleted
                     assert not existing_file.exists()
