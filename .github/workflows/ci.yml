@@ -76,7 +76,7 @@ jobs:
 
     - name: Check imports with isort
       run: |
-        python -m isort --check-only track_manager/ tests/
+        python -m isort --check-only --profile black track_manager/ tests/
 
     - name: Check for common security issues
       run: |
