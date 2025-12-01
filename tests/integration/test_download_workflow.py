@@ -21,23 +21,21 @@ class TestDownloadWorkflow:
         """Test complete Spotify download workflow."""
         downloader = Downloader(test_config, temp_output_dir)
 
-        # Mock spotdl to create a test file
-        def mock_download(url, output_dir):
+        # Configure the mock to create a test file
+        def mock_download(url, fmt):
             # Simulate spotdl creating a file
-            test_file = output_dir / "Artist - Song.mp3"
+            test_file = temp_output_dir / "Artist - Song.mp3"
             create_test_audio_file(test_file, artist="Artist", title="Song")
             return [str(test_file)]
 
-        with patch(
-            "track_manager.sources.spotify.SpotifyDownloader.download"
-        ) as mock_dl:
-            mock_dl.side_effect = lambda url, fmt: mock_download(url, temp_output_dir)
+        # Use the existing mock fixture
+        mock_spotify_download.return_value.download.side_effect = mock_download
 
-            # Execute download
-            downloader.download("https://open.spotify.com/track/test123", "auto")
+        # Execute download
+        downloader.download("https://open.spotify.com/track/test123", "auto")
 
-            # Verify download was attempted
-            mock_dl.assert_called_once()
+        # Verify download was attempted
+        mock_spotify_download.return_value.download.assert_called_once()
 
     def test_youtube_download_workflow(
         self, test_config, temp_output_dir, mock_ytdlp_download, create_test_audio_file

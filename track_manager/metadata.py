@@ -259,15 +259,30 @@ def update_metadata(file_path: Path, artist: str, title: str) -> bool:
         True if successful
     """
     try:
-        # Update metadata
-        audio = MutagenFile(str(file_path), easy=True)
-        if not audio:
-            print(f"⚠️  Could not read file: {file_path}")
-            return False
+        # Update metadata based on file format
+        if file_path.suffix.lower() == '.mp3':
+            # Use ID3 tags for MP3 files
+            from mutagen.mp3 import MP3
+            from mutagen.id3 import ID3, TPE1, TIT2
+            
+            audio = MP3(str(file_path), ID3=ID3)
+            if not audio.tags:
+                audio.add_tags()
+            
+            # Update ID3 tags
+            audio.tags.add(TPE1(encoding=3, text=artist))
+            audio.tags.add(TIT2(encoding=3, text=title))
+            audio.save()
+        else:
+            # Use easy interface for other formats
+            audio = MutagenFile(str(file_path), easy=True)
+            if not audio:
+                print(f"⚠️  Could not read file: {file_path}")
+                return False
 
-        audio["artist"] = [artist]
-        audio["title"] = [title]
-        audio.save()
+            audio["artist"] = [artist]
+            audio["title"] = [title]
+            audio.save()
 
         # Rename file
         new_name = f"{sanitize_filename(artist)} - {sanitize_filename(title)}{file_path.suffix}"

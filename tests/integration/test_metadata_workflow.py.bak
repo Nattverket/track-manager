@@ -190,10 +190,10 @@ class TestMetadataWorkflow:
         else:
             audio1 = MP3(str(file1))
             
-        assert audio1.get("TPE1", [None])[0] == "New Artist1"
+        assert audio1.get("artist", [None])[0] == "New Artist1"
 
         audio2 = MP3(str(file2))
-        assert audio2.get("TPE1", [None])[0] == "Artist2"  # Unchanged
+        assert audio2.get("artist", [None])[0] == "Artist2"  # Unchanged
 
         # Verify only pending row remains in CSV
         with open(csv_path, "r") as f:
