@@ -1,0 +1,348 @@
+"""Tests for duplicate detection functionality."""
+
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from track_manager.duplicates import (
+    check_file_duplicate,
+    extract_metadata,
+    find_duplicates,
+    normalize_metadata,
+    normalize_text,
+    scan_library,
+)
+
+
+class TestNormalizeText:
+    """Test text normalization for duplicate detection."""
+
+    def test_normalize_text_basic(self):
+        """Test basic text normalization."""
+        assert normalize_text("Hello World") == "hello world"
+        assert normalize_text("  Test  ") == "test"
+
+    def test_normalize_text_remove_junk_patterns(self):
+        """Test removal of junk patterns."""
+        assert normalize_text("Song [Official Video]") == "song"
+        assert normalize_text("Track (Audio)") == "track"
+        assert normalize_text("Title [HD]") == "title"
+
+    def test_normalize_text_featuring_variations(self):
+        """Test normalization of featuring variations."""
+        assert normalize_text("Artist feat. Guest") == "artist feat. guest"
+        assert normalize_text("Artist ft. Guest") == "artist feat. guest"
+        assert normalize_text("Artist featuring Guest") == "artist feat. guest"
+
+    def test_normalize_text_artist_separators_preserved(self):
+        """Test that artist separators are preserved (not normalized)."""
+        # We preserve & and x to avoid breaking artist names like "Excision"
+        assert normalize_text("Artist1 & Artist2") == "artist1 & artist2"
+        assert normalize_text("Artist1 x Artist2") == "artist1 x artist2"
+        assert normalize_text("Excision") == "excision"
+        assert normalize_text("Flux Pavilion") == "flux pavilion"
+
+    def test_normalize_text_lyrics_visualizer_patterns(self):
+        """Test removal of lyrics and visualizer patterns."""
+        assert normalize_text("Song [Lyrics]") == "song"
+        assert normalize_text("Song [Lyric Video]") == "song"
+        assert normalize_text("Song (Lyric Video)") == "song"
+        assert normalize_text("Song [Visualizer]") == "song"
+        assert normalize_text("Song [Visualiser]") == "song"
+
+    def test_normalize_text_quality_resolution_patterns(self):
+        """Test removal of quality and resolution patterns."""
+        assert normalize_text("Song [4K]") == "song"
+        assert normalize_text("Song [8K]") == "song"
+        assert normalize_text("Song [UHD]") == "song"
+        assert normalize_text("Song [HQ]") == "song"
+        assert normalize_text("Song [LQ]") == "song"
+        assert normalize_text("Song (High Quality)") == "song"
+        assert normalize_text("Song [Best Quality]") == "song"
+
+    def test_normalize_text_platform_patterns(self):
+        """Test removal of platform-specific patterns."""
+        assert normalize_text("Artist - Topic") == "artist"
+        assert normalize_text("Song [Premium]") == "song"
+
+    def test_normalize_text_promo_patterns(self):
+        """Test removal of promotional patterns."""
+        assert normalize_text("Song [Free Download]") == "song"
+        assert normalize_text("Song [Download]") == "song"
+        assert normalize_text("Song [Out Now]") == "song"
+        assert normalize_text("Song [NEW]") == "song"
+
+    def test_normalize_text_multiple_patterns(self):
+        """Test removal of multiple junk patterns together."""
+        assert normalize_text("Song [Official Video] [4K] [Lyrics]") == "song"
+        assert normalize_text("Song (Official Audio) [HQ] [NEW]") == "song"
+
+    def test_normalize_text_meaningful_distinctions_preserved(self):
+        """Test that meaningful distinctions are preserved for DJ use."""
+        assert normalize_text("Song (Live)") == "song (live)"
+        assert normalize_text("Song (Acoustic)") == "song (acoustic)"
+        assert normalize_text("Song (Remix)") == "song (remix)"
+        assert normalize_text("Song (Extended Edit)") == "song (extended edit)"
+        assert normalize_text("Song (Radio Edit)") == "song (radio edit)"
+        assert normalize_text("Song (Explicit)") == "song (explicit)"
+        assert normalize_text("Song (Clean)") == "song (clean)"
+        assert normalize_text("Song (Instrumental)") == "song (instrumental)"
+
+    def test_normalize_text_feat_with_parens(self):
+        """Test featuring normalization with parentheses doesn't break other parens."""
+        assert normalize_text("Song (feat. Artist)") == "song feat. artist"
+        assert normalize_text("Song (ft. Artist)") == "song feat. artist"
+        assert normalize_text("Song (featuring Artist)") == "song feat. artist"
+        assert (
+            normalize_text("Song (feat. Artist) (Live)") == "song feat. artist (live)"
+        )
+
+
+class TestExtractMetadata:
+    """Test metadata extraction from audio files."""
+
+    def test_extract_metadata_nonexistent_file(self):
+        """Test metadata extraction from nonexistent file."""
+        artist, title = extract_metadata(Path("/nonexistent/file.mp3"))
+        assert artist is None
+        assert title is None
+
+    @patch("track_manager.duplicates.MutagenFile")
+    def test_extract_metadata_success(self, mock_mutagen):
+        """Test successful metadata extraction."""
+        # Create a mock that properly simulates mutagen behavior
+        mock_audio = MagicMock()
+
+        # Mock the bool check - mutagen file should be truthy
+        mock_audio.__bool__.return_value = True
+
+        # Mock the get method to return our test values
+        mock_audio.get.side_effect = lambda key, default=None: {
+            "artist": ["Test Artist"],
+            "title": ["Test Title"],
+        }.get(key, default)
+
+        # Mock the 'in' operator for metadata field checks
+        mock_audio.__contains__.side_effect = lambda key: key in ["artist", "title"]
+
+        # Set the mock mutagen to return our mock audio object
+        mock_mutagen.return_value = mock_audio
+
+        artist, title = extract_metadata(Path("test.mp3"))
+
+        # Verify mutagen was called correctly
+        mock_mutagen.assert_called_once_with("test.mp3", easy=True)
+
+        assert artist == "Test Artist"
+        assert title == "Test Title"
+
+    @patch("track_manager.duplicates.MutagenFile")
+    def test_extract_metadata_missing_fields(self, mock_mutagen):
+        """Test metadata extraction with missing fields."""
+        # Mock mutagen file with missing metadata
+        mock_audio = MagicMock()
+        mock_audio.get.return_value = [None]
+        mock_mutagen.return_value = mock_audio
+
+        artist, title = extract_metadata(Path("test.mp3"))
+        assert artist is None
+        assert title is None
+
+
+class TestNormalizeMetadata:
+    """Test metadata normalization."""
+
+    def test_normalize_metadata_basic(self):
+        """Test basic metadata normalization."""
+        artist, title = normalize_metadata("Test Artist", "Test Title")
+        assert artist == "test artist"
+        assert title == "test title"
+
+    def test_normalize_metadata_with_junk(self):
+        """Test metadata normalization with junk patterns."""
+        artist, title = normalize_metadata("Artist [Official]", "Title (Audio) [HD]")
+        assert artist == "artist"
+        assert title == "title"
+
+    def test_normalize_metadata_none_values(self):
+        """Test metadata normalization with None values."""
+        artist, title = normalize_metadata(None, None)
+        assert artist == ""
+        assert title == ""
+
+
+class TestFindDuplicates:
+    """Test duplicate finding functionality."""
+
+    def test_find_duplicates_no_metadata(self):
+        """Test duplicate finding with no metadata."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            duplicates = find_duplicates("", "", Path(temp_dir))
+            assert duplicates == []
+
+    def test_find_duplicates_no_matches(self):
+        """Test duplicate finding with no matches."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            # Create test files
+            (temp_path / "file1.mp3").touch()
+            (temp_path / "file2.mp3").touch()
+
+            with patch("track_manager.duplicates.extract_metadata") as mock_extract:
+                mock_extract.side_effect = [
+                    ("Artist1", "Title1"),
+                    ("Artist2", "Title2"),
+                ]
+                duplicates = find_duplicates("Artist3", "Title3", temp_path)
+                assert duplicates == []
+
+    def test_find_duplicates_with_matches(self):
+        """Test duplicate finding with matches."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            # Create test files
+            file1 = temp_path / "file1.mp3"
+            file2 = temp_path / "file2.mp3"
+            file1.touch()
+            file2.touch()
+
+            with patch("track_manager.duplicates.extract_metadata") as mock_extract:
+                mock_extract.side_effect = [
+                    ("Artist", "Title"),
+                    ("Artist", "Title"),
+                ]
+                duplicates = find_duplicates("Artist", "Title", temp_path)
+                assert len(duplicates) == 2
+
+
+class TestCheckFileDuplicate:
+    """Test file duplicate checking."""
+
+    def test_check_file_duplicate_no_duplicates(self):
+        """Test duplicate check with no duplicates."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch("track_manager.duplicates.extract_metadata") as mock_extract:
+                mock_extract.return_value = ("Artist", "Title")
+                with patch("track_manager.duplicates.find_duplicates") as mock_find:
+                    mock_find.return_value = []
+                    result = check_file_duplicate(
+                        Path("test.mp3"), Path(temp_dir), "interactive"
+                    )
+                    assert result is False
+
+    def test_check_file_duplicate_skip_mode(self):
+        """Test duplicate check in skip mode."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch("track_manager.duplicates.extract_metadata") as mock_extract:
+                mock_extract.return_value = ("Artist", "Title")
+                with patch("track_manager.duplicates.find_duplicates") as mock_find:
+                    mock_find.return_value = [Path("existing.mp3")]
+                    result = check_file_duplicate(
+                        Path("test.mp3"), Path(temp_dir), "skip"
+                    )
+                    assert result is True
+
+    def test_check_file_duplicate_keep_mode(self):
+        """Test duplicate check in keep mode."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch("track_manager.duplicates.extract_metadata") as mock_extract:
+                mock_extract.return_value = ("Artist", "Title")
+                with patch("track_manager.duplicates.find_duplicates") as mock_find:
+                    mock_find.return_value = [Path("existing.mp3")]
+                    result = check_file_duplicate(
+                        Path("test.mp3"), Path(temp_dir), "keep"
+                    )
+                    assert result is False
+
+    @patch("builtins.input")
+    def test_check_file_duplicate_interactive_skip(self, mock_input):
+        """Test interactive duplicate check with skip."""
+        mock_input.return_value = "s"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch("track_manager.duplicates.extract_metadata") as mock_extract:
+                mock_extract.return_value = ("Artist", "Title")
+                with patch("track_manager.duplicates.find_duplicates") as mock_find:
+                    mock_find.return_value = [Path("existing.mp3")]
+                    result = check_file_duplicate(
+                        Path("test.mp3"), Path(temp_dir), "interactive"
+                    )
+                    assert result is True
+
+    @patch("builtins.input")
+    def test_check_file_duplicate_interactive_keep(self, mock_input):
+        """Test interactive duplicate check with keep."""
+        mock_input.return_value = "k"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch("track_manager.duplicates.extract_metadata") as mock_extract:
+                mock_extract.return_value = ("Artist", "Title")
+                with patch("track_manager.duplicates.find_duplicates") as mock_find:
+                    mock_find.return_value = [Path("existing.mp3")]
+                    result = check_file_duplicate(
+                        Path("test.mp3"), Path(temp_dir), "interactive"
+                    )
+                    assert result is False
+
+    @patch("builtins.input")
+    def test_check_file_duplicate_interactive_replace(self, mock_input):
+        """Test interactive duplicate check with replace."""
+        mock_input.return_value = "r"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            # Create the existing file that will be deleted
+            existing_file = temp_path / "existing.mp3"
+            existing_file.touch()
+
+            with patch("track_manager.duplicates.extract_metadata") as mock_extract:
+                mock_extract.return_value = ("Artist", "Title")
+                with patch("track_manager.duplicates.find_duplicates") as mock_find:
+                    mock_find.return_value = [existing_file]
+                    result = check_file_duplicate(
+                        Path("test.mp3"), temp_path, "interactive"
+                    )
+                    assert result is False
+                    # Verify the existing file was deleted
+                    assert not existing_file.exists()
+
+
+class TestScanLibrary:
+    """Test library scanning for duplicates."""
+
+    def test_scan_library_no_duplicates(self):
+        """Test library scan with no duplicates."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            (temp_path / "file1.mp3").touch()
+            (temp_path / "file2.m4a").touch()
+
+            with patch("track_manager.duplicates.extract_metadata") as mock_extract:
+                mock_extract.side_effect = [
+                    ("Artist1", "Title1"),
+                    ("Artist2", "Title2"),
+                ]
+                duplicates = scan_library(temp_path)
+                assert duplicates == {}
+
+    def test_scan_library_with_duplicates(self):
+        """Test library scan with duplicates."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            file1 = temp_path / "file1.mp3"
+            file2 = temp_path / "file2.m4a"
+            file1.touch()
+            file2.touch()
+
+            with patch("track_manager.duplicates.extract_metadata") as mock_extract:
+                mock_extract.side_effect = [
+                    ("Test Artist", "Test Title"),
+                    ("Test Artist", "Test Title"),
+                ]
+                duplicates = scan_library(temp_path)
+                assert len(duplicates) == 1
+                # Check that the duplicate group has 2 files
+                files = list(duplicates.values())[0]
+                assert len(files) == 2
+                # Verify the key format (normalized artist|||title)
+                key = list(duplicates.keys())[0]
+                assert "test artist|||test title" == key
