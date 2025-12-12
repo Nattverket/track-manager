@@ -274,8 +274,14 @@ spotdl downloads audio from YouTube (using Spotify metadata):
 ```python
 downloader_settings = DownloaderOptions()
 downloader_settings["output"] = str(output_dir)
-downloader_settings["bitrate"] = "0"  # VBR matching source quality
+downloader_settings["format"] = "m4a"  # Explicitly request M4A format
+downloader_settings["bitrate"] = "auto"  # Match source quality intelligently
 ```
+
+**Why these settings:**
+- `format="m4a"`: Without this, spotdl defaults to MP3
+- `bitrate="auto"`: Intelligently matches YouTube source quality (~128-160kbps)
+- Prevents upsampling (e.g., 160kbps → 274kbps)
 
 **Processing Flow:**
 
