@@ -34,9 +34,9 @@ class YouTubeDownloader(BaseDownloader):
         # Configure yt-dlp options
         ydl_opts = {
             # Prefer high-quality audio formats
-            # 140: M4A ~130kbps (native, no conversion needed)
-            # 251: Opus ~129kbps (requires conversion to M4A)
-            "format": "140/251/bestaudio/best",
+            # 251: Opus ~160kbps (best quality, requires conversion to M4A)
+            # 140: M4A ~128kbps (native, no conversion needed)
+            "format": "251/140/bestaudio/best",
             "postprocessors": [
                 {
                     "key": "FFmpegExtractAudio",

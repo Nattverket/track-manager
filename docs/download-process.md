@@ -78,11 +78,17 @@ We use `preferredquality: "0"` which tells FFmpeg to use VBR matching source qua
 
 ```python
 # yt-dlp format preference
-"format": "140/251/bestaudio/best"
+"format": "251/140/bestaudio/best"
 
-# 140: M4A ~130kbps (native, no conversion)
-# 251: Opus ~129kbps (requires conversion to M4A)
+# 251: Opus ~160kbps (best quality, requires conversion to M4A)
+# 140: M4A ~128kbps (native, no conversion needed)
 ```
+
+**Why prefer 251 over 140?**
+- Format 251 offers ~160kbps (higher quality than 140's ~128kbps)
+- With VBR quality matching, we preserve this higher quality
+- Worth the transcoding cost for better audio quality
+- Falls back to 140 if 251 unavailable
 
 **Post-processing:**
 
