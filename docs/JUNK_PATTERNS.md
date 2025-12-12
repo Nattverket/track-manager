@@ -158,3 +158,97 @@ Each implemented pattern has corresponding test cases in `tests/test_duplicates.
 - ⚠️ **Sessions (Spotify/BBC/etc)** - Different recordings
 
 **Recommendation**: Be conservative with removal - when in doubt, keep the distinction!
+
+---
+
+## Filename Sanitization
+
+### Why We Replace "Unsafe" Characters
+
+When creating filenames from metadata, we replace certain characters with `-`. This section explains why.
+
+### Filesystem-Forbidden Characters
+
+Some characters **cannot** be in filenames due to filesystem restrictions:
+
+#### All Operating Systems
+| Character | Issue | Systems |
+|-----------|-------|---------|
+| `/` | Path separator | Unix/Linux/macOS |
+| `\` | Path separator | Windows |
+
+**Example:**
+```python
+filename = "AC/DC - Thunderstruck.m4a"
+# OS interprets: /music/AC/DC - Thunderstruck.m4a
+# As: /music/AC/DC (directory) / - Thunderstruck.m4a
+# Result: File not found error
+```
+
+#### Windows-Specific
+| Character | Issue | Why |
+|-----------|-------|-----|
+| `:` | Drive/volume separator | `C:`, `D:` |
+| `<` | Redirection operator | Input redirection |
+| `>` | Redirection operator | Output redirection |
+| `"` | String delimiter | Command parsing |
+| `|` | Pipe operator | Command chaining |
+| `?` | Wildcard | Single char match |
+| `*` | Wildcard | Multiple char match |
+
+**Impact:** Files with these characters **cannot be created** on Windows or FAT32/exFAT drives.
+
+**Example:**
+```bash
+# macOS - works:
+touch "Song: The Title.m4a"  ✓
+
+# Windows - fails:
+touch "Song: The Title.m4a"  ✗ Error: Invalid filename
+
+# USB drive (FAT32) - fails:
+cp "Song: The Title.m4a" /Volumes/USB/  ✗ Error
+```
+
+### Shell Metacharacters
+
+On Unix/macOS, these characters are **allowed in filenames** but cause problems in shell commands:
+
+| Character | Shell Meaning | Problem |
+|-----------|---------------|---------|
+| `*` | Wildcard (any chars) | Expands to matching files |
+| `?` | Wildcard (single char) | Expands to matching files |
+| `<` | Input redirection | Redirects stdin |
+| `>` | Output redirection | Redirects stdout |
+| `|` | Pipe | Chains commands |
+| `"` | String delimiter | Quote parsing |
+
+**Example:**
+```bash
+# File named: "song*.mp3"
+touch "song*.mp3"  # Creates file (works with quotes)
+
+# Later, without quotes:
+ls song*.mp3       # Shell expands * to all matching files
+rm song*.mp3       # Deletes ALL files matching song*.mp3 pattern!
+
+# Must always remember quotes:
+ls "song*.mp3"     # Works, but error-prone
+```
+
+### The Trade-Off
+
+#### Current Approach: Replace with `-`
+
+**What we do:**
+```python
+unsafe_chars = ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]
+for char in unsafe_chars:
+    text = text.replace(char, "-")
+```
+
+**Examples:**
+"AC/DC - Song" → "AC-DC - Song.m4a"
+"Song: The Title" → "Song- The Title.m4a"
+"File?.mp3" → "File-.mp3"
+"Best > Worst" → "Best - Worst.m4a"
