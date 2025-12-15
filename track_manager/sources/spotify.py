@@ -62,7 +62,7 @@ class SpotifyDownloader(BaseDownloader):
         downloader_settings["output"] = str(output_dir)
         # Set format to m4a and use high quality encoding
         downloader_settings["format"] = "m4a"
-        downloader_settings["bitrate"] = "0"  # High quality VBR
+        downloader_settings["bitrate"] = "192"
         # Prefer format 251 (Opus ~160kbps, 20kHz) over 140 (AAC ~128kbps, 16kHz)
         downloader_settings["yt_dlp_args"] = "--format 251/140/bestaudio/best"
 

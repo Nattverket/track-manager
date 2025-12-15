@@ -41,7 +41,7 @@ class YouTubeDownloader(BaseDownloader):
                 {
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": audio_format,
-                    "preferredquality": "192",  # CBR 192kbps - see docs/track-quality.md
+                    "preferredquality": "192",
                 }
             ],
             "outtmpl": str(self.output_dir / ".tmp_%(id)s.%(ext)s"),
