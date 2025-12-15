@@ -245,6 +245,8 @@ def check_setup():
         click.echo("Next steps:")
         click.echo("  1. Ensure config.yaml is set up")
         click.echo("  2. Run: track-manager download <url>")
+        click.echo("  Tip: You can use the 'tm' alias instead of 'track-manager'")
+
     else:
         click.echo("⚠️ Some dependencies are missing. Please install them first.", err=True)
         sys.exit(1)
