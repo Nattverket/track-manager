@@ -1,306 +1,296 @@
 # Track Quality Strategy
 
-This document explains the technical decisions behind track-manager's quality preservation approach.
+This document explains track-manager's quality-first approach using DAB Music and ISRC-based matching.
 
 ## Core Principle
 
-**Preserve actual source quality honestly** - no upsampling, no false advertising, no unnecessary file bloat.
+**Get the highest quality available, automatically** - Use ISRC codes to find lossless FLAC sources from DAB Music, convert to efficient M4A format, fallback to original sources when needed.
 
-## Understanding Audio Formats
+## Quality Hierarchy
 
-### YouTube Format Options
+track-manager prioritizes sources in order of quality:
 
-YouTube provides multiple audio formats with different characteristics:
+1. **DAB Music** (Primary) - FLAC lossless → M4A 256kbps
+2. **Original Source** (Fallback) - YouTube/SoundCloud at acceptable quality
 
-| Format | Codec | Bitrate | Frequency Range | Notes |
-|--------|-------|---------|-----------------|-------|
-| **251** | Opus | ~160kbps | **20kHz** | Best quality, preferred |
-| **140** | AAC (M4A) | ~128kbps | 16kHz | Standard quality, fallback |
-| 250 | Opus | ~70kbps | ~15kHz | Lower quality |
-| 249 | Opus | ~50kbps | ~12kHz | Lowest quality |
+## DAB Music Integration
 
-**Key insight:** Format 251 preserves frequencies up to **20kHz** (full audible spectrum), while format 140 cuts off at **16kHz**.
+### How It Works
 
-### Why Frequency Range Matters
+1. Extract ISRC from source (Spotify API or song.link)
+2. Search DAB Music by ISRC
+3. Download FLAC (lossless, 16-bit 44.1kHz)
+4. Convert to M4A at 256kbps AAC
+5. Apply metadata (title, artist, album, date, ISRC, cover art)
+6. Delete FLAC, keep M4A
 
-The human hearing range extends to approximately 20kHz. Audio formats with higher frequency cutoffs preserve:
-- Better high-frequency detail (cymbals, hi-hats, brightness)
-- More "air" and spaciousness
-- Better stereo imaging
-- Overall more faithful reproduction
+### Why DAB Music?
 
-**Example from testing:**
-- Format 251 → 166kbps M4A: 20kHz range ✓
-- Format 140 → 162kbps M4A: 16kHz cutoff ❌
+**Quality:**
 
-**The 166kbps file sounds better** despite similar bitrate, because frequency range matters more than bitrate alone.
+- FLAC: Lossless compression (no quality loss)
+- Source: CD-quality (16-bit, 44.1kHz)
+- Full frequency range (20kHz)
+- No generation loss
 
-## Why We Prefer Format 251 (Opus)
+### ISRC-Based Matching
 
-### Technical Advantages
+**How We Get ISRC:**
 
-1. **Full Frequency Range**
-   - Preserves up to 20kHz
-   - Complete audible spectrum
-   - Better for critical listening
+**Tier 1 - Direct from Spotify:**
 
-2. **Higher Source Quality**
-   - ~160kbps vs ~128kbps (format 140)
-   - More audio information to work with
-   - Better transcoding results
+- User provides Spotify URL
+- Query Spotify API for track data
+- Extract ISRC from track metadata
 
-3. **Modern Codec**
-   - Opus is state-of-the-art
-   - Better efficiency than AAC
-   - Designed for transparency
+**Tier 2 - Via song.link:**
 
-### Format Preference Order
+- User provides YouTube/SoundCloud/other URL
+- Query song.link to find Spotify match
+- Get Spotify URL from song.link (requires Spotify match)
+- Query Spotify API for ISRC
 
-```python
-"format": "251/140/bestaudio/best"
-```
+**Tier 3 - Fallback:**
 
-**Explanation:**
-1. **Try format 251 first** - Get best quality (20kHz)
-2. **Fallback to 140** - If 251 unavailable (rare)
-3. **bestaudio** - Safety fallback
-4. **best** - Last resort
+- No ISRC found or no Spotify match
+- Download from original source
+- Lower quality but still works
 
-## Why We Convert to M4A
+## FLAC → M4A Conversion
 
-### Why Not Keep Opus?
+### Why Convert?
 
-Opus files use WebM containers, which have poor compatibility:
-- ❌ Not supported by many DJ software
-- ❌ Poor metadata support
-- ❌ Limited tool compatibility
-- ❌ Playback issues on some devices
+**FLAC Advantages:**
 
-### Why M4A (AAC)?
+- Lossless quality (perfect preservation)
+- 16-bit 44.1kHz (CD quality)
+- Full frequency range
 
-**M4A offers the best balance:**
+**FLAC Disadvantages:**
 
-1. **Excellent Compression**
-   - Smaller files than MP3 at same quality
-   - ~30% smaller for equivalent perceptual quality
-   - More efficient than most codecs
+- Large file size (~30-40MB per track)
+- Poor compatibility with DJ software
+- Slower to load and process
 
-2. **Universal Compatibility**
-   - Supported by all modern devices
-   - Works in all DJ software
-   - Native support in macOS, iOS
-   - Good support on Windows, Android
+**M4A Advantages:**
 
-3. **Good Metadata Support**
-   - Rich tagging capabilities
-   - Album art support
-   - Industry standard
-
-4. **Modern Format**
-   - Still actively developed
-   - Part of MPEG-4 standard
-   - Better than legacy formats
+- 80% smaller files (~6MB vs 30MB)
+- Transparent quality at 256kbps AAC
+- Universal compatibility
+- Fast loading in DJ software
+- Native support on all platforms
 
 ### Conversion Quality
 
-**Opus → M4A conversion:**
-- Minimal quality loss (both modern codecs)
-- Slight bitrate increase acceptable (160→192kbps)
-- Preserves frequency range (20kHz maintained)
+**Settings:**
 
-**Why slight bitrate increase is acceptable:**
-- Ensures 20kHz preservation during transcoding
-- Small overhead (~20%) is normal for lossy→lossy
-- Still vastly better than upsampling to 400kbps
+- Codec: AAC (Advanced Audio Coding)
+- Bitrate: 256kbps constant
+- Sample rate: 44.1kHz (preserved)
+- Channels: Stereo
 
-## Why We Hardcode Bitrate for YouTube
+**Quality Analysis:**
 
-### The Problem with `preferredquality="0"`
+- Source: FLAC 1411kbps lossless
+- Output: M4A 256kbps AAC
+- Quality loss: Transparent (imperceptible to human hearing)
+- Frequency range: 20kHz preserved
+- Dynamic range: Preserved
+- Stereo imaging: Preserved
 
-When using yt-dlp with FFmpeg postprocessing:
+**Why 256kbps AAC is Transparent:**
 
-```python
-"preferredquality": "0"  # What we initially tried
+- AAC is more efficient than MP3 (256kbps AAC ≈ 320kbps MP3)
+- At 256kbps, AAC is considered transparent for most listeners
+- Professional listening tests show no perceptible difference
+- Much more efficient than keeping FLAC for DJ use
+
+### Metadata Preservation
+
+**Applied to M4A:**
+
+- Title, Artist, Album
+- Release date
+- ISRC (for tracking)
+- Cover art (re-embedded after conversion)
+- Label, UPC/EAN (when available)
+
+## YouTube Format Conversion
+
+### Why 192kbps for Format 251?
+
+When downloading YouTube format 251 (Opus ~160kbps), we convert to M4A at 192kbps, not 160kbps. Here's why:
+
+**The Transcoding Problem:**
+
+- Source: Opus 160kbps (already lossy)
+- Target: M4A/AAC (also lossy)
+- Converting lossy → lossy requires headroom to preserve quality
+
+**Why Not Match Source Bitrate?**
+
+Transcoding at the same bitrate (160 → 160) causes quality degradation:
+
+- Opus artifacts get re-encoded by AAC encoder
+- Each codec has different strengths/weaknesses
+- Some information is lost in the conversion
+
+**Why 192kbps Works:**
+
+The ~20% overhead (160 → 192) provides:
+
+- Headroom for transcoding artifacts
+- Preservation of Opus quality characteristics
+- Maintains 20kHz frequency range
+- Transparent result (no audible loss)
+
+**Result:**
+
+- Format 251 (160kbps Opus) → M4A 192kbps
+- Minimal file size increase (~20%)
+- No perceptible degradation
+
+## Quality Comparison
+
+### DAB Music vs Original Sources
+
+| Source        | Format | True Bitrate | Quality | File Size | Notes                            |
+| ------------- | ------ | ------------ | ------- | --------- | -------------------------------- |
+| **DAB Music** | M4A    | 256kbps      | ★★★★★   | ≈6.3 MB   | Lossless source → M4A            |
+| Spotify       | M4A    | ~128-160kbps | ★★★☆☆   | ≈4.0 MB   | Via YouTube, Format 251 else 140 |
+| YouTube       | M4A    | ~128-160kbps | ★★★☆☆   | ≈4.0 MB   | Format 251 else 140              |
+| SoundCloud    | M4A    | ~128kbps     | ★★★☆☆   | ≈3.2 MB   | Free tier only                   |
+
+### Frequency Range Comparison
+
+**DAB Music (from FLAC):**
+
+- Full 20kHz range
+- No cutoff or filtering
+- Complete audible spectrum
+- Professional quality
+
+**YouTube Format 251:**
+
+- 20kHz range
+- Decent quality but lossy source
+- Mostly noise above 16khz
+
+**YouTube Format 140:**
+
+- 16kHz cutoff
+- Missing high frequencies
+- Noticeable on critical listening
+
+**Result:** DAB Music preserves the full frequency range from lossless source.
+
+## Fallback Strategy
+
+### When DAB Music Unavailable
+
+If ISRC not found or track not on DAB Music, system falls back to original source:
+
+**YouTube Fallback:**
+
+- Direct yt-dlp download
+- Source preference: 1: 251 (Opus), 2: 140 (M4A)
+- Source bitrate: ~160kbps (251) or ~128kbps (140)
+- Format: M4A at 128-192kbps
+- Quality: Standard streaming quality
+
+**Spotify Fallback:**
+
+- Downloads via spotdl (uses YouTube)
+- Source bitrate: ~160kbps (251) or ~128kbps (140)
+- Format: M4A at 128-192kbps
+- Quality: Good but not lossless
+- Automatic metadata from Spotify
+
+**SoundCloud Fallback:**
+
+- Direct yt-dlp download
+- Format: M4A ~128kbps
+- Quality: Free tier streaming
+
+### Graceful Degradation
+
+**With DAB Music credentials:**
+
+- Primary: DAB Music FLAC → M4A 256kbps
+- Fallback: Original source (lower quality)
+
+**Without DAB Music credentials:**
+
+- Info message: "DAB Music credentials not configured"
+- Direct fallback to original source
+- System still works, just lower quality
+
+## File Naming & Organization
+
+**Format:** `Artist - Title.m4a`
+
+**Benefits:**
+
+- Consistent across all sources
+- Clean, professional naming
+- Easy to sort and search
+- DJ software friendly
+
+**Metadata Handling:**
+
+- Sanitizes unsafe characters
+- Preserves artist and title
+- Includes full metadata tags
+- Cover art embedded
+
+## Quality Verification
+
+**Check Downloaded Quality:**
+
+```bash
+track-manager check-quality
 ```
 
-**Result:** Massive upsampling!
-- Source: Format 251 Opus ~160kbps
-- Output: M4A **400+ kbps** ❌
-- Problem: 2.5x upsampling, fake quality, wasted space
+**Expected Results:**
 
-### What `preferredquality="0"` Actually Means
+- DAB Music: 256kbps M4A (from FLAC)
+- YouTube: ~128-192kbps M4A (format 251 or 140)
+- Spotify: ~128-192kbps M4A (format 251 or 140)
+- SoundCloud: ~128kbps M4A
 
-In FFmpeg's VBR quality scale:
-- `0` = "highest quality VBR"
-- NOT "match source quality"
-- FFmpeg encodes at maximum bitrate it thinks is "lossless"
-- Ignores that source is already lossy at 160kbps
+## Best Practices
 
-**This violates our core principle:** honest quality representation.
+### Maximizing Quality
 
-### The Solution: Hardcode `192kbps`
+1. **Configure DAB Music credentials** - Get best possible quality
+2. **Use Spotify URLs when possible** - Better ISRC success rate
+3. **Monitor failed downloads** - Check `failed-downloads.txt`
+4. **Verify metadata** - Run `track-manager verify-metadata`
 
-```python
-"preferredquality": "192"  # Explicit bitrate
-```
+## Summary
 
-**Why 192kbps:**
+### What You Get
 
-1. **High Enough for 20kHz**
-   - Preserves full frequency range from format 251
-   - No quality loss in audible spectrum
-   - Maintains source fidelity
+**Primary Source (DAB Music):**
 
-2. **Avoids Upsampling**
-   - 160kbps source → 192kbps output
-   - Only ~20% overhead (acceptable for transcoding)
-   - Not excessive like 400kbps
+- ✅ Lossless FLAC source
+- ✅ Converted to efficient M4A 256kbps
+- ✅ Transparent quality (imperceptible loss)
+- ✅ 80% smaller than FLAC
+- ✅ Full metadata + cover art
+- ✅ Universal compatibility
 
-3. **Transparent Quality**
-   - Difference from source is imperceptible
-   - Transcoding artifacts minimized
-   - Professional quality output
+**Fallback Sources:**
 
-4. **Reasonable File Size**
-   - ~1.4MB per minute
-   - Efficient storage usage
-   - Appropriate for the quality level
+- ✅ Still decent quality (128-160kbps)
+- ✅ Automatic when DAB unavailable
+- ✅ No manual intervention needed
 
-### Why Not Lower?
+### Why This Approach
 
-**Testing 160kbps or 128kbps targets:**
-- Risk losing 20kHz range during Opus→AAC conversion
-- Transcoding needs headroom to preserve quality
-- Better to have slight overhead than cut quality
-
-**The ~192kbps is the sweet spot** for preserving format 251's quality without waste.
-
-### Why Not Use VBR Like Spotify?
-
-**We tested VBR quality scale (0-10):**
-- Quality 0: 400+ kbps (excessive upsampling)
-- Quality 2: ~300 kbps (still too high)
-- Quality 5: ~300 kbps (unexpectedly high)
-
-**VBR doesn't work well for YouTube:**
-- FFmpeg's VBR scale aims for "transparency" in Opus→AAC conversion
-- This requires 250-300+ kbps AAC to preserve 160kbps Opus quality
-- While technically correct, it appears inflated to users
-- File sizes don't match perceived quality
-
-**Spotify's bitrate="0" works differently:**
-- spotdl interprets it as "intelligent source matching"
-- Results: 166-191kbps VBR (adaptive, efficient)
-- More conservative than yt-dlp's direct VBR
-- Better balance of quality and size
-
-**Why we use 192kbps CBR for YouTube:**
-- ✅ Predictable output size (~1.4 MB/min)
-- ✅ Proven to preserve 20kHz frequency range
-- ✅ Reasonable overhead (~20% over source)
-- ✅ Avoids VBR's excessive bitrates (300+ kbps)
-- ✅ More honest than claiming "VBR transparency"
-
-**Trade-off accepted:**
-- YouTube: 192kbps CBR (consistent, predictable)
-- Spotify: ~166-191kbps VBR (adaptive, efficient)
-- Both preserve 20kHz and sound excellent
-- Slight difference is acceptable for usability
-
-## Spotify: Why `bitrate="0"` Works Differently
-
-### The Spotify Exception
-
-For Spotify (via spotdl), we use:
-
-```python
-downloader_settings["bitrate"] = "0"
-```
-
-**Result:** ~166kbps M4A @ 20kHz ✓
-
-### Why This Is Different
-
-spotdl interprets `bitrate="0"` differently than yt-dlp's `preferredquality`:
-- spotdl: "match source intelligently"
-- yt-dlp: "maximum quality VBR"
-
-**Empirical evidence:**
-- Spotify with `bitrate="0"`: 166kbps (good) ✓
-- YouTube with `preferredquality="0"`: 400+ kbps (bad) ❌
-
-### Why Keep It This Way
-
-**Honesty in quality representation:**
-- Source: ~160kbps Opus from YouTube
-- Output: 166kbps M4A
-- **The 166kbps accurately reflects source quality**
-- Minimal overhead (~4%) for conversion
-- Not inflated like YouTube's 192kbps
-
-**Alternative (align with YouTube):**
-```python
-downloader_settings["bitrate"] = "192"
-```
-
-**Why we don't:**
-- Would inflate bitrate beyond source quality
-- 192kbps suggests better quality than source provides
-- Less honest representation to users
-- Current 166kbps is more truthful
-
-### The Trade-off
-
-**Consistency vs Honesty:**
-- YouTube: 192kbps (slight inflation, needed to avoid 400kbps)
-- Spotify: 166kbps (honest representation of source)
-
-We choose **honesty** - users seeing file bitrate get accurate information about actual quality.
-
-## Summary: Quality Strategy
-
-### What We Do
-
-1. **Prefer format 251** (Opus, 20kHz) over 140 (AAC, 16kHz)
-2. **Convert to M4A** for compatibility and efficiency
-3. **YouTube: 192kbps** to preserve quality without excessive upsampling
-4. **Spotify: ~166kbps** for honest representation of source quality
-
-### What We Avoid
-
-1. ❌ **Upsampling** - No 160kbps → 400kbps inflation
-2. ❌ **False advertising** - Bitrates reflect actual quality
-3. ❌ **Quality loss** - Preserve 20kHz frequency range
-4. ❌ **Waste** - No unnecessarily large files
-
-### Quality Metrics That Matter
-
-**In order of importance:**
-1. **Frequency range** (20kHz > 16kHz)
-2. **Source format** (Opus 160kbps > AAC 128kbps)
-3. **Output format** (M4A for compatibility)
-4. **Bitrate** (only after above factors)
-
-**Key insight:** 166kbps M4A @ 20kHz > 162kbps M4A @ 16kHz
-
-The frequency range and source quality matter more than the bitrate number alone.
-
-## For Users
-
-**What you get:**
-- Best available quality from YouTube (format 251 when available)
-- M4A format (universal compatibility, efficient)
-- Honest bitrate (reflects actual source quality)
-- Preserved frequency range (20kHz full spectrum)
-- No fake upsampling or quality inflation
-
-**File sizes:**
-- YouTube: ~1.4 MB/minute (192kbps M4A)
-- Spotify: ~1.2 MB/minute (166kbps M4A)
-- Both preserve 20kHz frequency range
-
-**Quality assurance:**
-- Test files with spectrum analyzer
-- Verify 20kHz preservation
-- Confirm no unnecessary upsampling
-- Ensure honest quality representation
+1. **Quality First** - Always try for best source (FLAC)
+2. **Efficiency** - Convert to practical format (M4A 256kbps)
+3. **Compatibility** - Works everywhere (all DJ software, devices)
+4. **Reliability** - ISRC-based matching ensures correct track
+5. **Automatic** - System handles everything
+6. **Graceful** - Falls back when needed
