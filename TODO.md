@@ -50,24 +50,6 @@
 - [ ] **Quality selection** - Choose specific bitrate/quality
 - [ ] **Automated tagging** - Auto-correct common metadata issues
 
-## Publishing to PyPI
-
-When ready to publish:
-
-```bash
-# Install build tools
-pip install build twine
-
-# Build distribution
-python -m build
-
-# Check the build
-twine check dist/*
-
-# Upload to PyPI (requires account and API token)
-python -m twine upload dist/*
-```
-
 ### Functional Tests
 
 - [ ] Spotify single track
