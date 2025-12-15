@@ -23,6 +23,13 @@ spotdl:
   # Alternative: Use a specific Python environment
   # path: "/Users/username/.pyenv/versions/3.12.7/envs/spotdl-env/bin/spotdl"
 
+# DAB Music (for high-quality FLAC downloads)
+dabmusic:
+  # Get account from https://dabmusic.xyz
+  email: ""
+  password: ""
+  endpoint: "https://dabmusic.xyz"
+
 # Download preferences
 downloads:
   # Default format: auto (prefer m4a), m4a, or mp3
