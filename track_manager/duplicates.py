@@ -258,7 +258,7 @@ def scan_library(library_dir: Path) -> dict:
     duplicates = {k: v for k, v in tracks.items() if len(v) > 1}
 
     if not duplicates:
-        print("✓ No duplicates found")
+        print("✅ No duplicates found")
         return {}
 
     print(f"⚠️  Found {len(duplicates)} duplicate groups:\n")
@@ -297,4 +297,4 @@ def check_file(file_path: Path, library_dir: Path):
         for dup in duplicates:
             print(f"  - {dup.name}")
     else:
-        print("✓ No duplicates found")
+        print("✅ No duplicates found")

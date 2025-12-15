@@ -85,20 +85,22 @@ class SpotifyDownloader(BaseDownloader):
         else:
             audio_format = format
 
-        print("Finding tracks on Spotify...")
-        print(f"URL: {url}\n")
+        print("🔍 Finding tracks on Spotify...")
+        print(f"URL: {url}")
+        print()
 
         try:
             # Get songs from URL
             songs = self.spotdl.search([url])
 
             if not songs:
-                print("❌ No tracks found")
+                print("❌ No tracks found", file=sys.stderr)
                 self.log_failure(url, "No tracks found")
                 return
 
             track_count = len(songs)
-            print(f"Found {track_count} tracks\n", flush=True)
+            print(f"✅ Found {track_count} tracks")
+            print()
 
             # Ask for confirmation if > threshold
             if track_count > self.config.playlist_threshold:
@@ -109,7 +111,8 @@ class SpotifyDownloader(BaseDownloader):
                     print("Cancelled")
                     return
 
-            print("Downloading...\n")
+            print("⬇️  Downloading...")
+            print()
 
             success = 0
             failed = 0
@@ -154,8 +157,9 @@ class SpotifyDownloader(BaseDownloader):
                 print()
 
             # Summary
-            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-            print("✓ Download complete!")
+            print()
+            print("━" * 60)
+            print("✅ Download complete")
             print(f"  Success: {success}")
             if failed > 0:
                 print(f"  Failed: {failed} (see {self.config.failed_log})")
@@ -285,7 +289,7 @@ class SpotifyDownloader(BaseDownloader):
             if file_path != final_path:
                 file_path.rename(final_path)
 
-            print(f"✓ Saved: {final_name}")
+            print(f"✅ Saved: {final_name}")
             return True
 
         except Exception as e:

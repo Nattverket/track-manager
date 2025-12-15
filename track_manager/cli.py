@@ -87,6 +87,8 @@ def download(url: str, format: str, output: Optional[str]):
     """Download track(s) from URL.
 
     Supports: Spotify, YouTube, SoundCloud, and direct URLs.
+    
+    Automatically downloads FLAC from DAB Music when available via ISRC lookup.
     """
     config = Config()
 
@@ -163,7 +165,8 @@ def apply_metadata(show: bool):
 @cli.command("check-setup")
 def check_setup():
     """Verify all dependencies are installed."""
-    click.echo("🔍 Checking track-manager dependencies...\n")
+    click.echo("🔍 Checking track-manager dependencies...")
+    click.echo()
 
     all_ok = True
 
@@ -173,8 +176,8 @@ def check_setup():
 
         click.echo(f"✅ yt-dlp: {yt_dlp.version.__version__}")
     except ImportError:
-        click.echo("❌ yt-dlp: Not installed")
-        click.echo("   Install: pip install yt-dlp")
+        click.echo("❌ yt-dlp: Not installed", err=True)
+        click.echo("   Install: pip install yt-dlp", err=True)
         all_ok = False
 
     # Check spotdl
@@ -192,8 +195,8 @@ def check_setup():
 
         click.echo(f"✅ requests: {requests.__version__}")
     except ImportError:
-        click.echo("❌ requests: Not installed")
-        click.echo("   Install: pip install requests")
+        click.echo("❌ requests: Not installed", err=True)
+        click.echo("   Install: pip install requests", err=True)
         all_ok = False
 
     # Check mutagen
@@ -202,8 +205,8 @@ def check_setup():
 
         click.echo(f"✅ mutagen: {mutagen.version_string}")
     except ImportError:
-        click.echo("❌ mutagen: Not installed")
-        click.echo("   Install: pip install mutagen")
+        click.echo("❌ mutagen: Not installed", err=True)
+        click.echo("   Install: pip install mutagen", err=True)
         all_ok = False
 
     # Check PyYAML
@@ -212,8 +215,8 @@ def check_setup():
 
         click.echo("✅ PyYAML: Installed")
     except ImportError:
-        click.echo("❌ PyYAML: Not installed")
-        click.echo("   Install: pip install pyyaml")
+        click.echo("❌ PyYAML: Not installed", err=True)
+        click.echo("   Install: pip install pyyaml", err=True)
         all_ok = False
 
     # Check click
@@ -222,8 +225,8 @@ def check_setup():
 
         click.echo(f"✅ click: {click.__version__}")
     except ImportError:
-        click.echo("❌ click: Not installed")
-        click.echo("   Install: pip install click")
+        click.echo("❌ click: Not installed", err=True)
+        click.echo("   Install: pip install click", err=True)
         all_ok = False
 
     # Check config
@@ -237,12 +240,13 @@ def check_setup():
     click.echo()
 
     if all_ok:
-        click.echo("🎉 All required dependencies are installed!")
-        click.echo("\nNext steps:")
+        click.echo("🎉 All required dependencies are installed")
+        click.echo()
+        click.echo("Next steps:")
         click.echo("  1. Ensure config.yaml is set up")
         click.echo("  2. Run: track-manager download <url>")
     else:
-        click.echo("⚠️  Some dependencies are missing. Please install them first.")
+        click.echo("⚠️  Some dependencies are missing. Please install them first.", err=True)
         sys.exit(1)
 
 
@@ -253,8 +257,9 @@ def init():
     config_path = config_dir / "config.yaml"
     
     if config_path.exists():
-        click.echo(f"✓ Config already exists: {config_path}")
-        click.echo("\nTo reconfigure, either:")
+        click.echo(f"✅ Config already exists: {config_path}")
+        click.echo()
+        click.echo("To reconfigure, either:")
         click.echo(f"  1. Edit: {config_path}")
         click.echo(f"  2. Delete and run 'track-manager init' again")
         return
@@ -265,27 +270,31 @@ def init():
     # Copy example config
     example = Path(__file__).parent.parent / "config.example.yaml"
     if not example.exists():
-        click.echo(f"❌ Error: Example config not found at {example}", err=True)
+        click.echo(f"❌ Example config not found at {example}", err=True)
         click.echo("This might happen with certain installation methods.", err=True)
-        click.echo("\nManually create config.yaml with:", err=True)
+        click.echo()
+        click.echo("Manually create config.yaml with:", err=True)
         click.echo(f"  mkdir -p {config_dir}", err=True)
         click.echo(f"  curl https://raw.githubusercontent.com/AmalganOpen/track-manager/main/config.example.yaml -o {config_path}", err=True)
         sys.exit(1)
     
     shutil.copy(example, config_path)
     
-    click.echo(f"✓ Created config: {config_path}")
-    click.echo("\n📝 Configuration:")
+    click.echo(f"✅ Created config: {config_path}")
+    click.echo()
+    click.echo("📝 Configuration:")
     click.echo("  - YouTube/SoundCloud: Works immediately, no setup needed")
     click.echo("  - Spotify: Requires API credentials (optional)")
-    click.echo("\n🔑 To enable Spotify downloads:")
+    click.echo()
+    click.echo("🔑 To enable Spotify downloads:")
     click.echo("  1. Get credentials: https://developer.spotify.com/dashboard")
     click.echo("     (Create app → Copy Client ID & Secret)")
     click.echo(f"  2. Option A - Edit config: {config_path}")
     click.echo("  3. Option B - Set environment variables:")
     click.echo("     export SPOTIPY_CLIENT_ID='your_id'")
     click.echo("     export SPOTIPY_CLIENT_SECRET='your_secret'")
-    click.echo("\n✓ Ready! Try: track-manager download <url>")
+    click.echo()
+    click.echo("✅ Ready! Try: track-manager download <url>")
 
 
 def main():

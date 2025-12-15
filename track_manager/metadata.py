@@ -232,13 +232,15 @@ def apply_metadata_csv(csv_path: Path, dry_run: bool = False) -> dict:
                 writer.writeheader()
                 writer.writerows(remaining_rows)
 
-            print(f"\n✓ Processed {result['processed']} tracks")
+            print()
+            print(f"✅ Processed {result['processed']} tracks")
             print(f"⚠️  {result['remaining']} rows remain for review")
             print(f"   Review at: {csv_path}")
         else:
             # Remove empty CSV
             csv_path.unlink()
-            print(f"\n✓ Processed {result['processed']} tracks")
+            print()
+            print(f"✅ Processed {result['processed']} tracks")
     else:
         print(f"\n[DRY RUN] Would process {result['processed']} tracks")
         if remaining_rows:
@@ -295,9 +297,9 @@ def update_metadata(file_path: Path, artist: str, title: str) -> bool:
 
         if new_path != file_path:
             file_path.rename(new_path)
-            print(f"✓ Renamed: {file_path.name} → {new_name}")
+            print(f"✅ Renamed: {file_path.name} → {new_name}")
         else:
-            print(f"✓ Updated metadata: {file_path.name}")
+            print(f"✅ Updated metadata: {file_path.name}")
 
         return True
 
@@ -353,4 +355,4 @@ def verify_library(output_dir: Path) -> dict:
     return {"missing": missing_metadata, "junk": junk_metadata}
 
     if not missing_metadata and not junk_metadata:
-        print("✓ All tracks have clean metadata")
+        print("✅ All tracks have clean metadata")

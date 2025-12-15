@@ -26,8 +26,9 @@ class DirectDownloader(BaseDownloader):
             url: Direct audio file URL
             format: Output format (auto, m4a, mp3)
         """
-        print("Downloading direct audio file...")
-        print(f"URL: {url}\n")
+        print("⬇️  Downloading direct audio file...")
+        print(f"URL: {url}")
+        print()
 
         try:
             # Extract filename from URL
@@ -65,21 +66,23 @@ class DirectDownloader(BaseDownloader):
                             progress = (downloaded / total_size) * 100
                             print(f"\rProgress: {progress:.1f}%", end="", flush=True)
 
-            print("\n✓ Downloaded\n")
+            print()
+            print("✅ Downloaded")
+            print()
 
             # Process the downloaded file
             if self._process_download(temp_file, url, format):
-                print("✓ Download complete!")
+                print("✅ Download complete")
             else:
-                print("⚠️  Download completed but processing failed")
+                print("⚠️  Download completed but processing failed", file=sys.stderr)
                 self.log_failure(url, "Processing failed")
 
         except requests.exceptions.RequestException as e:
-            print(f"❌ Download failed: {e}")
+            print(f"❌ Download failed: {e}", file=sys.stderr)
             self.log_failure(url, str(e))
             raise
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f"❌ Error: {e}", file=sys.stderr)
             self.log_failure(url, str(e))
             raise
 
@@ -142,7 +145,7 @@ class DirectDownloader(BaseDownloader):
             if file_path != final_path:
                 file_path.rename(final_path)
 
-            print(f"✓ Saved: {final_name}")
+            print(f"✅ Saved: {final_name}")
             return True
 
         except Exception as e:

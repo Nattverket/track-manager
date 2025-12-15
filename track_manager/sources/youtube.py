@@ -75,7 +75,8 @@ class YouTubeDownloader(BaseDownloader):
                 is_playlist = False
 
         # Download
-        print("Downloading...\n")
+        print("⬇️  Downloading...")
+        print()
 
         success = 0
         failed = 0
@@ -110,8 +111,9 @@ class YouTubeDownloader(BaseDownloader):
 
                 # Summary
                 if is_playlist:
-                    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                    print("✓ Download complete!")
+                    print()
+                    print("━" * 60)
+                    print("✅ Download complete")
                     print(f"  Success: {success}")
                     if failed > 0:
                         print(f"  Failed: {failed} (see {self.config.failed_log})")
@@ -178,7 +180,7 @@ class YouTubeDownloader(BaseDownloader):
 
             # Move to final location
             temp_file.rename(final_path)
-            print(f"✓ Saved: {final_name}")
+            print(f"✅ Saved: {final_name}")
 
             return True
 

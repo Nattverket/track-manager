@@ -43,7 +43,8 @@ class SoundCloudDownloader(YouTubeDownloader):
         }
         
         # Use similar logic as parent but with SoundCloud-specific settings
-        print("Downloading from SoundCloud...\n")
+        print("⬇️  Downloading from SoundCloud...")
+        print()
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
@@ -51,11 +52,11 @@ class SoundCloudDownloader(YouTubeDownloader):
                 
                 # Process the download
                 if self._process_download(info, audio_format):
-                    print("✓ Download complete!")
+                    print("✅ Download complete")
                 else:
-                    print("❌ Download failed")
+                    print("❌ Download failed", file=sys.stderr)
                     
             except Exception as e:
-                print(f"❌ Download failed: {e}")
+                print(f"❌ Download failed: {e}", file=sys.stderr)
                 self.log_failure(url, str(e))
                 raise
