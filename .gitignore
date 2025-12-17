@@ -37,5 +37,8 @@ htmlcov/
 # Cache
 *.cache
 
+# Metadata review
+tracks-metadata-review.csv
+
 # Who is Gurt? :--)
 for-gurt/

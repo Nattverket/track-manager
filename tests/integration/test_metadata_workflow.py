@@ -26,8 +26,10 @@ class TestMetadataWorkflow:
             test_file, artist="Artist", title="Song [Official Video]", format="mp3"
         )
 
-        # Flag for review
-        flag_for_review(test_file, "Junk in title", "https://example.com", csv_path)
+        # Mock get_metadata_csv_path to use test path
+        with patch('track_manager.metadata.get_metadata_csv_path', return_value=csv_path):
+            # Flag for review
+            flag_for_review(test_file, "Junk in title", "https://example.com")
 
         # Verify CSV was created
         assert csv_path.exists()
@@ -45,17 +47,20 @@ class TestMetadataWorkflow:
         self, temp_output_dir, create_test_audio_file, test_config
     ):
         """Test that flagging appends to existing CSV."""
-        csv_path = test_config.metadata_csv
+        csv_path = temp_output_dir.parent / "metadata-review-test2.csv"
 
         # Create and flag first file
         file1 = temp_output_dir / "test1.mp3"
         create_test_audio_file(file1, artist="Artist1", title="Song1", format="mp3")
-        flag_for_review(file1, "Reason 1", "url1", csv_path)
-
+        
         # Create and flag second file
         file2 = temp_output_dir / "test2.mp3"
         create_test_audio_file(file2, artist="Artist2", title="Song2", format="mp3")
-        flag_for_review(file2, "Reason 2", "url2", csv_path)
+        
+        # Mock get_metadata_csv_path to use test path
+        with patch('track_manager.metadata.get_metadata_csv_path', return_value=csv_path):
+            flag_for_review(file1, "Reason 1", "url1")
+            flag_for_review(file2, "Reason 2", "url2")
 
         # Verify both entries exist
         with open(csv_path, "r") as f:
@@ -104,7 +109,8 @@ class TestMetadataWorkflow:
             )
 
         # Apply corrections
-        apply_metadata_csv(csv_path, dry_run=False)
+        with patch('track_manager.metadata.get_metadata_csv_path', return_value=csv_path):
+            apply_metadata_csv(dry_run=False)
 
         # Verify metadata was updated
         from mutagen.mp3 import MP3
@@ -177,7 +183,8 @@ class TestMetadataWorkflow:
             )
 
         # Apply corrections
-        apply_metadata_csv(csv_path, dry_run=False)
+        with patch('track_manager.metadata.get_metadata_csv_path', return_value=csv_path):
+            apply_metadata_csv(dry_run=False)
 
         # Verify only first file was updated
         from mutagen.mp3 import MP3
@@ -277,7 +284,7 @@ class TestMetadataWorkflow:
         self, temp_output_dir, create_test_audio_file, test_config
     ):
         """Test that CSV is removed when all corrections are applied."""
-        csv_path = test_config.metadata_csv
+        csv_path = temp_output_dir.parent / "metadata-review-test5.csv"
 
         # Create test file
         test_file = temp_output_dir / "test.mp3"
@@ -311,7 +318,8 @@ class TestMetadataWorkflow:
             )
 
         # Apply corrections
-        apply_metadata_csv(csv_path, dry_run=False)
+        with patch('track_manager.metadata.get_metadata_csv_path', return_value=csv_path):
+            apply_metadata_csv(dry_run=False)
 
         # Verify CSV was removed
         assert not csv_path.exists()

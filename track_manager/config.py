@@ -125,10 +125,7 @@ class Config:
         """Get failed downloads log path."""
         return Path(self.get("failed_log", "~/Music/tm/failed-downloads.txt"))
 
-    @property
-    def metadata_csv(self) -> Path:
-        """Get metadata review CSV path."""
-        return Path(self.get("metadata_csv", "~/Music/tm/tracks-metadata-review.csv"))
+
 
     @property
     def spotdl_path(self) -> Optional[str]:

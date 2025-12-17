@@ -8,7 +8,7 @@ output_dir: "~/Music/tm/tracks"
 failed_log: "~/Music/tm/failed-downloads.txt"
 
 # Metadata review CSV file
-metadata_csv: "~/Music/tm/tracks-metadata-review.csv"
+
 
 # Spotdl configuration (for Spotify downloads)
 spotdl:

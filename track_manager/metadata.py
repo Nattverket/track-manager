@@ -18,6 +18,11 @@ CSV_HEADERS = [
 ]
 
 
+def get_metadata_csv_path() -> Path:
+    """Get the metadata review CSV path (repo root)."""
+    return Path(__file__).parent.parent / "tracks-metadata-review.csv"
+
+
 def has_junk_patterns(text: str) -> bool:
     """Check if text contains common junk patterns.
 
@@ -73,15 +78,15 @@ def extract_metadata(file_path: Path) -> tuple[Optional[str], Optional[str]]:
         return None, None
 
 
-def flag_for_review(file_path: Path, reason: str, url: str, csv_path: Path):
+def flag_for_review(file_path: Path, reason: str, url: str):
     """Flag file for metadata review.
 
     Args:
         file_path: Path to audio file
         reason: Reason for flagging
         url: Source URL
-        csv_path: Path to review CSV
     """
+    csv_path = get_metadata_csv_path()
     artist, title = extract_metadata(file_path)
 
     # Create CSV if it doesn't exist
@@ -111,12 +116,9 @@ def flag_for_review(file_path: Path, reason: str, url: str, csv_path: Path):
     print(f"   Review/edit CSV: file://{csv_path.resolve()}")
 
 
-def show_pending_reviews(csv_path: Path):
-    """Show pending metadata reviews.
-
-    Args:
-        csv_path: Path to review CSV
-    """
+def show_pending_reviews():
+    """Show pending metadata reviews."""
+    csv_path = get_metadata_csv_path()
     if not csv_path.exists():
         print(f"No review file found at: {csv_path}")
         return
@@ -165,16 +167,16 @@ def sanitize_filename(text: str) -> str:
     return text
 
 
-def apply_metadata_csv(csv_path: Path, dry_run: bool = False) -> dict:
+def apply_metadata_csv(dry_run: bool = False) -> dict:
     """Apply metadata corrections from CSV.
 
     Args:
-        csv_path: Path to review CSV
         dry_run: If True, don't modify files or CSV (just show what would be done)
 
     Returns:
         Dict with 'processed', 'remaining', and 'errors' counts
     """
+    csv_path = get_metadata_csv_path()
     result = {"processed": 0, "remaining": 0, "errors": 0}
 
     if not csv_path.exists():

@@ -237,7 +237,7 @@ class BaseDownloader(ABC):
         """
         from ..metadata import flag_for_review
 
-        flag_for_review(file_path, reason, url, self.config.metadata_csv)
+        flag_for_review(file_path, reason, url)
 
     def log_failure(self, url: str, error: str):
         """Log failed download.

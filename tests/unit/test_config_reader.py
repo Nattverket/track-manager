@@ -87,9 +87,6 @@ def test_config_properties(sample_config_file):
     assert isinstance(config.failed_log, Path)
     assert "failed.txt" in str(config.failed_log)
 
-    assert isinstance(config.metadata_csv, Path)
-    assert "metadata.csv" in str(config.metadata_csv)
-
     assert config.spotdl_path == "/usr/local/bin/spotdl"
     assert config.default_format == "m4a"
     assert config.playlist_threshold == 100

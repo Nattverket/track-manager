@@ -245,7 +245,7 @@ When a duplicate is found, you'll be prompted to:
 When metadata is missing or problematic, tracks are flagged for manual review:
 
 1. Download script flags tracks with issues
-2. Edit `tracks-metadata-review.csv` to fill in correct metadata
+2. Edit `tracks-metadata-review.csv` (in repo root) to fill in correct metadata
 3. Run `track-manager apply-metadata` to update files
 
 ## Error Handling
@@ -318,7 +318,7 @@ Get credentials from: https://developer.spotify.com/dashboard
 
 **Solution:**
 
-1. Check `tracks-metadata-review.csv` in your output directory
+1. Check `tracks-metadata-review.csv` in the track-manager repo root
 2. Fill in correct artist and title for flagged tracks
 3. Run: `track-manager apply-metadata`
 

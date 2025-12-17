@@ -157,9 +157,9 @@ def apply_metadata(show: bool):
     config = Config()
 
     if show:
-        show_pending_reviews(config.metadata_csv)
+        show_pending_reviews()
     else:
-        apply_metadata_csv(config.metadata_csv)
+        apply_metadata_csv()
 
 
 @cli.command("check-setup")
