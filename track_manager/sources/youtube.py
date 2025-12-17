@@ -49,16 +49,18 @@ class YouTubeDownloader(BaseDownloader):
                 if is_playlist:
                     playlist_entries = info.get("entries", [])
                     track_count = len(playlist_entries)
-                    print(f"📝 Playlist detected: {track_count} videos", flush=True)
-
-                    # Ask for confirmation if > threshold
-                    if track_count > self.config.playlist_threshold:
-                        response = input(
-                            f"⚠️ Large playlist ({track_count} videos). Continue? [y/N]: "
-                        )
-                        if response.lower() != "y":
-                            print("Cancelled")
-                            return
+                    playlist_title = info.get("title", "Unknown playlist")
+                    
+                    print(f"📝 Playlist detected: {playlist_title}", flush=True)
+                    print(f"   Contains {track_count} video{'s' if track_count != 1 else ''}", flush=True)
+                    print()
+                    
+                    # Always ask for confirmation on playlists
+                    # (User might have accidentally copied a playlist URL when they wanted a single track)
+                    response = input(f"Download all {track_count} tracks? [y/N]: ")
+                    if response.lower() != "y":
+                        print("Cancelled")
+                        return
             except Exception as e:
                 error_msg = str(e).lower()
                 
