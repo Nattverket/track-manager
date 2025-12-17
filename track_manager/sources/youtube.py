@@ -110,6 +110,20 @@ class YouTubeDownloader(BaseDownloader):
             if failed > 0:
                 print(f"  Failed: {failed} (see {self.config.failed_log})")
         else:
+            # Single video with smart download support
+            if not is_playlist and self.parent_downloader:
+                print("🔗 Trying smart download...")
+                smart_success = self.parent_downloader.try_smart_download(
+                    url, audio_format
+                )
+                
+                if smart_success:
+                    print("✅ Downloaded via smart download")
+                    return
+                
+                print("⬇️ Downloading from YouTube")
+                print()
+            
             # Original flow for single videos or when no parent downloader
             ydl_opts = {
                 "format": "251/140/bestaudio/best",
