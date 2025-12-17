@@ -129,7 +129,12 @@ class Downloader:
         return None, None
 
     def _try_dab_music(
-        self, isrc: str, format: str, spotify_metadata: Optional[dict] = None
+        self,
+        isrc: str,
+        format: str,
+        spotify_metadata: Optional[dict] = None,
+        track_url: Optional[str] = None,
+        playlist_url: Optional[str] = None,
     ) -> bool:
         """Try to download from DAB Music using ISRC.
 
@@ -137,10 +142,13 @@ class Downloader:
             isrc: ISRC code
             format: Output format
             spotify_metadata: Optional Spotify metadata (for multi-artist support)
+            track_url: Original track URL
+            playlist_url: Playlist URL if from a playlist
 
         Returns:
             True if successful, False otherwise
         """
+        from .provenance import DownloadProvenance
         # Check if DAB Music credentials are configured
         email = self.config.dabmusic_email
         password = self.config.dabmusic_password
@@ -194,11 +202,20 @@ class Downloader:
             success = client.download_track(track["id"], output_path, quality=27)
 
             if success:
-                # Apply metadata using existing system (pass Spotify metadata for multi-artist)
-                self._apply_dab_metadata(output_path, track, isrc, spotify_metadata)
-
-                # Convert FLAC to M4A at 256kbps
-                m4a_path = self._convert_to_m4a(output_path)
+                # Create provenance information
+                provenance = DownloadProvenance(
+                    track_url=track_url or f"isrc:{isrc}",
+                    playlist_url=playlist_url,
+                    source="dab",
+                    original_format="flac",
+                    original_bitrate=None,  # FLAC is lossless
+                )
+                
+                # Collect all metadata (don't apply to FLAC yet)
+                metadata = self._collect_dab_metadata(track, isrc, spotify_metadata)
+                
+                # Convert FLAC to M4A and apply all metadata at once
+                m4a_path = self._convert_to_m4a(output_path, metadata, provenance)
                 if m4a_path:
                     print(f"✅ Downloaded and converted to M4A: {m4a_path}")
                     print()
@@ -217,6 +234,52 @@ class Downloader:
             print(f"⚠️ DAB Music error: {e}", file=sys.stderr)
             return False
 
+    def _collect_dab_metadata(
+        self,
+        track: dict,
+        isrc: str,
+        spotify_metadata: Optional[dict] = None,
+    ) -> dict:
+        """Collect metadata from DAB Music download.
+
+        Args:
+            track: Track data from DAB Music
+            isrc: ISRC code
+            spotify_metadata: Spotify metadata (preferred source for all metadata)
+
+        Returns:
+            Dictionary of metadata to apply
+        """
+        # Use Spotify metadata when available (it's always provided for DAB downloads)
+        if spotify_metadata:
+            artist_str = ", ".join(spotify_metadata["artists"]) if spotify_metadata.get("artists") else track.get("artist", "")
+            title = spotify_metadata.get("title", track.get("title", ""))
+            album = spotify_metadata.get("album", track.get("albumTitle", ""))
+        else:
+            # Fallback to DAB metadata (shouldn't happen in practice)
+            artist_str = track.get("artist", "")
+            title = track.get("title", "")
+            album = track.get("albumTitle", "")
+
+        # Collect all metadata
+        metadata = {
+            'title': title,
+            'artist': artist_str,
+            'album': album,
+            'date': track.get("releaseDate", ""),
+            'isrc': isrc,
+        }
+        
+        # Add optional fields
+        if track.get("upc"):
+            metadata['barcode'] = track["upc"]
+        if track.get("label"):
+            metadata['label'] = track["label"]
+        if track.get("albumCover"):
+            metadata['cover_url'] = track["albumCover"]
+        
+        return metadata
+    
     def _apply_dab_metadata(
         self,
         file_path: Path,
@@ -225,6 +288,9 @@ class Downloader:
         spotify_metadata: Optional[dict] = None,
     ):
         """Apply metadata to DAB Music download.
+        
+        DEPRECATED: Use _collect_dab_metadata + _convert_to_m4a instead.
+        This method is kept for backward compatibility but will be removed.
 
         Args:
             file_path: Path to downloaded file
@@ -238,38 +304,25 @@ class Downloader:
 
             audio = FLAC(str(file_path))
 
-            # Use Spotify metadata when available (it's always provided for DAB downloads)
-            if spotify_metadata:
-                # Use Spotify's data for everything
-                artist_str = ", ".join(spotify_metadata["artists"]) if spotify_metadata.get("artists") else track.get("artist", "")
-                title = spotify_metadata.get("title", track.get("title", ""))
-                album = spotify_metadata.get("album", track.get("albumTitle", ""))
-                
-            else:
-                # Fallback to DAB metadata (shouldn't happen in practice)
-                artist_str = track.get("artist", "")
-                title = track.get("title", "")
-                album = track.get("albumTitle", "")
+            # Collect metadata
+            metadata = self._collect_dab_metadata(track, isrc, spotify_metadata)
+            
+            # Apply to FLAC
+            audio["TITLE"] = metadata['title']
+            audio["ARTIST"] = metadata['artist']
+            audio["ALBUM"] = metadata['album']
+            audio["DATE"] = metadata.get('date', '')
+            audio["ISRC"] = metadata['isrc']
 
-            # Set basic metadata
-            audio["TITLE"] = title
-            audio["ARTIST"] = artist_str
-            audio["ALBUM"] = album
-            audio["DATE"] = track.get("releaseDate", "")  # Keep DAB's release date
-            audio["ISRC"] = isrc
+            if metadata.get('barcode'):
+                audio["BARCODE"] = metadata['barcode']
+            if metadata.get('label'):
+                audio["LABEL"] = metadata['label']
 
-            # Keep DAB-specific fields
-            if track.get("upc"):
-                audio["BARCODE"] = track["upc"]
-
-            if track.get("label"):
-                audio["LABEL"] = track["label"]
-
-            # Save metadata
             audio.save()
 
             # Download and embed cover art
-            cover_url = track.get("albumCover")
+            cover_url = metadata.get('cover_url')
             if cover_url:
                 try:
                     response = requests.get(cover_url, timeout=10)
@@ -295,18 +348,25 @@ class Downloader:
         except Exception as e:
             print(f"⚠️ Failed to apply metadata: {e}", file=sys.stderr)
 
-    def _convert_to_m4a(self, flac_path: Path) -> Optional[Path]:
-        """Convert FLAC to M4A at 256kbps AAC.
+    def _convert_to_m4a(
+        self,
+        flac_path: Path,
+        metadata: dict,
+        provenance: Optional["DownloadProvenance"] = None,
+    ) -> Optional[Path]:
+        """Convert FLAC to M4A at 256kbps AAC and apply all metadata.
 
         Args:
             flac_path: Path to FLAC file
+            metadata: Metadata dictionary to apply
+            provenance: Download provenance information
 
         Returns:
             Path to M4A file if successful, None otherwise
         """
         import subprocess
 
-        from mutagen.flac import FLAC, Picture
+        from mutagen.flac import FLAC
         from mutagen.mp4 import MP4, MP4Cover
 
         m4a_path = flac_path.with_suffix(".m4a")
@@ -314,20 +374,8 @@ class Downloader:
         try:
             print(f"🔄 Converting to M4A (256kbps AAC)...")
 
-            # Extract metadata and cover art from FLAC before conversion
+            # Extract cover art from FLAC before conversion (if embedded)
             flac_audio = FLAC(str(flac_path))
-            
-            # Store all metadata to re-apply after conversion
-            metadata = {
-                'title': flac_audio.get('TITLE', [''])[0],
-                'artist': flac_audio.get('ARTIST', [''])[0],
-                'album': flac_audio.get('ALBUM', [''])[0],
-                'date': flac_audio.get('DATE', [''])[0],
-                'isrc': flac_audio.get('ISRC', [''])[0],
-                'barcode': flac_audio.get('BARCODE', [''])[0],
-                'label': flac_audio.get('LABEL', [''])[0],
-            }
-            
             cover_data = None
             if flac_audio.pictures:
                 cover_data = flac_audio.pictures[0].data
@@ -361,10 +409,10 @@ class Downloader:
             if not m4a_path.exists():
                 raise Exception("M4A file not created")
 
-            # Re-apply metadata to M4A (FFmpeg doesn't transfer all fields)
+            # Apply all metadata to M4A
             m4a_audio = MP4(str(m4a_path))
             
-            # Map FLAC Vorbis comments to M4A atoms
+            # Basic metadata (iTunes standard atoms)
             if metadata.get('title'):
                 m4a_audio['\xa9nam'] = metadata['title']
             if metadata.get('artist'):
@@ -374,28 +422,48 @@ class Downloader:
             if metadata.get('date'):
                 m4a_audio['\xa9day'] = metadata['date']
             
-            # ISRC uses a special freeform atom
+            # Music metadata (freeform atoms)
             if metadata.get('isrc'):
                 m4a_audio['----:com.apple.iTunes:ISRC'] = metadata['isrc'].encode('utf-8')
-            
-            # Barcode/UPC
             if metadata.get('barcode'):
                 m4a_audio['----:com.apple.iTunes:BARCODE'] = metadata['barcode'].encode('utf-8')
-            
-            # Label
             if metadata.get('label'):
                 m4a_audio['----:com.apple.iTunes:LABEL'] = metadata['label'].encode('utf-8')
             
-            # Re-embed cover art
+            # Provenance metadata (freeform atoms)
+            if provenance:
+                m4a_audio['----:com.apple.iTunes:TRACK_URL'] = provenance.track_url.encode('utf-8')
+                if provenance.playlist_url:
+                    m4a_audio['----:com.apple.iTunes:PLAYLIST_URL'] = provenance.playlist_url.encode('utf-8')
+                m4a_audio['----:com.apple.iTunes:SOURCE'] = provenance.source.encode('utf-8')
+                m4a_audio['----:com.apple.iTunes:ORIGINAL_FORMAT'] = provenance.original_format.encode('utf-8')
+                if provenance.original_bitrate:
+                    m4a_audio['----:com.apple.iTunes:ORIGINAL_BITRATE'] = str(provenance.original_bitrate).encode('utf-8')
+            
+            # Download and embed cover art
+            if not cover_data and metadata.get('cover_url'):
+                try:
+                    import requests
+                    response = requests.get(metadata['cover_url'], timeout=10)
+                    response.raise_for_status()
+                    cover_data = response.content
+                except Exception as e:
+                    print(f"⚠️ Failed to download cover art: {e}")
+            
+            # Embed cover art
             if cover_data:
                 m4a_audio["covr"] = [
                     MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_JPEG)
                 ]
             
             m4a_audio.save()
-            print(f"🔄 Re-applied metadata (including ISRC: {metadata.get('isrc', 'N/A')})")
+            
+            # Print confirmation
+            print(f"🔄 Applied metadata (ISRC: {metadata.get('isrc', 'N/A')})")
+            if provenance:
+                print(f"🔄 Added provenance (source: {provenance.source}, format: {provenance.original_format})")
             if cover_data:
-                print(f"🔄 Re-embedded cover art")
+                print(f"🔄 Embedded cover art")
 
             # Delete FLAC file
             flac_path.unlink()
@@ -442,6 +510,7 @@ class Downloader:
         format: str,
         isrc: Optional[str] = None,
         spotify_metadata: Optional[dict] = None,
+        playlist_url: Optional[str] = None,
     ) -> bool:
         """Try to download using smart download (ISRC → DAB Music).
 
@@ -450,6 +519,7 @@ class Downloader:
             format: Output format
             isrc: Pre-fetched ISRC (optional, will lookup if not provided)
             spotify_metadata: Pre-fetched Spotify metadata (optional)
+            playlist_url: Playlist URL if downloading from a playlist
 
         Returns:
             True if downloaded successfully, False if should fallback to source
@@ -464,7 +534,13 @@ class Downloader:
 
         if isrc:
             print(f"🔍 Found ISRC: {isrc}")
-            return self._try_dab_music(isrc, format, spotify_metadata)
+            return self._try_dab_music(
+                isrc,
+                format,
+                spotify_metadata,
+                track_url=url,
+                playlist_url=playlist_url,
+            )
 
         return False
 

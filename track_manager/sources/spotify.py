@@ -110,6 +110,9 @@ class SpotifyDownloader(BaseDownloader):
             track_count = len(songs)
             print(f"✅ Found {track_count} tracks")
             print()
+            
+            # Determine if this is a playlist/album (multiple tracks)
+            playlist_url = url if track_count > 1 else None
 
             # Ask for confirmation if > threshold
             if track_count > self.config.playlist_threshold:
@@ -153,6 +156,7 @@ class SpotifyDownloader(BaseDownloader):
                             audio_format,
                             isrc=song.isrc,
                             spotify_metadata=spotify_metadata,
+                            playlist_url=playlist_url,
                         )
                         
                         if smart_success:

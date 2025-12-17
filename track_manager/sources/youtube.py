@@ -60,6 +60,9 @@ class YouTubeDownloader(BaseDownloader):
         # Download tracks
         success = 0
         failed = 0
+        
+        # Store playlist URL if it's a playlist
+        playlist_url = url if is_playlist else None
 
         if is_playlist and self.parent_downloader:
             # Try smart download for each track in playlist
@@ -78,7 +81,7 @@ class YouTubeDownloader(BaseDownloader):
                     # Try smart download
                     print("  🔗 Trying smart download...")
                     smart_success = self.parent_downloader.try_smart_download(
-                        video_url, audio_format
+                        video_url, audio_format, playlist_url=playlist_url
                     )
                     
                     if smart_success:
