@@ -18,14 +18,15 @@ from .base import BaseDownloader
 class SpotifyDownloader(BaseDownloader):
     """Spotify downloader using spotdl."""
 
-    def __init__(self, config, output_dir: Path):
+    def __init__(self, config, output_dir: Path, parent_downloader=None):
         """Initialize Spotify downloader.
 
         Args:
             config: Configuration object
             output_dir: Output directory
+            parent_downloader: Parent Downloader instance (for smart downloads)
         """
-        super().__init__(config, output_dir)
+        super().__init__(config, output_dir, parent_downloader)
 
         # Initialize spotdl
         import os
@@ -139,7 +140,29 @@ class SpotifyDownloader(BaseDownloader):
                         )
                         continue
 
-                    # Download song
+                    # Try smart download if parent downloader available
+                    if self.parent_downloader and song.isrc:
+                        spotify_metadata = {
+                            "artists": song.artists,
+                            "title": song.name,
+                            "album": song.album_name,
+                        }
+                        
+                        smart_success = self.parent_downloader.try_smart_download(
+                            song.url,
+                            audio_format,
+                            isrc=song.isrc,
+                            spotify_metadata=spotify_metadata,
+                        )
+                        
+                        if smart_success:
+                            print("    Downloaded via smart download")
+                            success += 1
+                            print()
+                            continue
+
+                    # Fallback: Download song using spotdl
+                    print("  ⬇️ Downloading from YouTube (via spotdl)")
                     result = self.spotdl.download(song)
 
                     if result:
@@ -168,9 +191,9 @@ class SpotifyDownloader(BaseDownloader):
             print()
             print("━" * 60)
             print("✅ Download complete")
-            print(f"  Success: {success}")
+            print(f"   Success: {success}")
             if failed > 0:
-                print(f"  Failed: {failed} (see {self.config.failed_log})")
+                print(f"   Failed: {failed} (see {self.config.failed_log})")
 
         except Exception as e:
             print(f"❌ Error: {e}", file=sys.stderr)

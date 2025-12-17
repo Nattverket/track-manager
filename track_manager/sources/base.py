@@ -13,15 +13,17 @@ from ..config import Config
 class BaseDownloader(ABC):
     """Base class for source-specific downloaders."""
 
-    def __init__(self, config: Config, output_dir: Path):
+    def __init__(self, config: Config, output_dir: Path, parent_downloader=None):
         """Initialize base downloader.
 
         Args:
             config: Configuration object
             output_dir: Output directory for downloads
+            parent_downloader: Parent Downloader instance (for smart downloads)
         """
         self.config = config
         self.output_dir = output_dir
+        self.parent_downloader = parent_downloader
 
     @abstractmethod
     def download(self, url: str, format: str):

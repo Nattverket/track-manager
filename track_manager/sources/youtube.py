@@ -31,35 +31,18 @@ class YouTubeDownloader(BaseDownloader):
         else:
             audio_format = format
 
-        # Configure yt-dlp options
-        ydl_opts = {
-            # Prefer high-quality audio formats
-            # 251: Opus ~160kbps (best quality, requires conversion to M4A)
-            # 140: M4A ~128kbps (native, no conversion needed)
-            "format": "251/140/bestaudio/best",
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": audio_format,
-                    "preferredquality": "192",
-                }
-            ],
-            "outtmpl": str(self.output_dir / ".tmp_%(id)s.%(ext)s"),
-            "quiet": True,
-            "no_warnings": False,
-            "extract_flat": False,
-            # Enable remote components for solving JS challenges to access high-quality formats
-            "remote_components": ["ejs:github"],
-        }
-
-        # Check if it's a playlist
+        # Check if it's a playlist and extract entries
+        is_playlist = False
+        playlist_entries = []
+        
         with yt_dlp.YoutubeDL({"extract_flat": True, "quiet": True}) as ydl:
             try:
                 info = ydl.extract_info(url, download=False)
                 is_playlist = info.get("_type") == "playlist"
 
                 if is_playlist:
-                    track_count = len(info.get("entries", []))
+                    playlist_entries = info.get("entries", [])
+                    track_count = len(playlist_entries)
                     print(f"📝 Playlist detected: {track_count} videos", flush=True)
 
                     # Ask for confirmation if > threshold
@@ -74,52 +57,146 @@ class YouTubeDownloader(BaseDownloader):
                 print(f"⚠️ Could not extract info: {e}", file=sys.stderr)
                 is_playlist = False
 
-        # Download
-
+        # Download tracks
         success = 0
         failed = 0
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            try:
-                # Download
-                info = ydl.extract_info(url, download=True)
-
-                # Process downloaded files
-                if is_playlist:
-                    entries = info.get("entries", [])
-                    total = len(entries)
-
-                    for idx, entry in enumerate(entries, 1):
-                        if entry:
-                            print(
-                                f"[{idx}/{total}] Processing: {entry.get('title', 'Unknown')}"
-                            )
-
-                            if self._process_download(entry, audio_format):
-                                success += 1
-                            else:
-                                failed += 1
-                            print()
-                else:
-                    # Single video
-                    if self._process_download(info, audio_format):
+        if is_playlist and self.parent_downloader:
+            # Try smart download for each track in playlist
+            total = len(playlist_entries)
+            
+            for idx, entry in enumerate(playlist_entries, 1):
+                if not entry:
+                    continue
+                    
+                video_url = entry.get("url")
+                title = entry.get("title", "Unknown")
+                
+                print(f"[{idx}/{total}] {title}")
+                
+                try:
+                    # Try smart download
+                    print("  🔗 Trying smart download...")
+                    smart_success = self.parent_downloader.try_smart_download(
+                        video_url, audio_format
+                    )
+                    
+                    if smart_success:
+                        print("    Downloaded via smart download")
+                        success += 1
+                        print()
+                        continue
+                    
+                    # Fallback to yt-dlp
+                    print("  ⬇️ Downloading from YouTube")
+                    if self._download_single_video(video_url, audio_format):
                         success += 1
                     else:
                         failed += 1
+                        
+                except Exception as e:
+                    print(f"  ⚠️ Error: {e}", file=sys.stderr)
+                    self.log_failure(video_url, str(e))
+                    failed += 1
+                
+                print()
+            
+            # Summary
+            print()
+            print("━" * 60)
+            print("✅ Download complete")
+            print(f"   Success: {success}")
+            if failed > 0:
+                print(f"  Failed: {failed} (see {self.config.failed_log})")
+        else:
+            # Original flow for single videos or when no parent downloader
+            ydl_opts = {
+                "format": "251/140/bestaudio/best",
+                "postprocessors": [
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": audio_format,
+                        "preferredquality": "192",
+                    }
+                ],
+                "outtmpl": str(self.output_dir / ".tmp_%(id)s.%(ext)s"),
+                "quiet": True,
+                "no_warnings": False,
+                "extract_flat": False,
+                "remote_components": ["ejs:github"],
+            }
 
-                # Summary
-                if is_playlist:
-                    print()
-                    print("━" * 60)
-                    print("✅ Download complete")
-                    print(f"  Success: {success}")
-                    if failed > 0:
-                        print(f"  Failed: {failed} (see {self.config.failed_log})")
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                try:
+                    info = ydl.extract_info(url, download=True)
 
-            except Exception as e:
-                print(f"❌ Download failed: {e}", file=sys.stderr)
-                self.log_failure(url, str(e))
-                raise
+                    if is_playlist:
+                        entries = info.get("entries", [])
+                        total = len(entries)
+
+                        for idx, entry in enumerate(entries, 1):
+                            if entry:
+                                print(
+                                    f"[{idx}/{total}] Processing: {entry.get('title', 'Unknown')}"
+                                )
+
+                                if self._process_download(entry, audio_format):
+                                    success += 1
+                                else:
+                                    failed += 1
+                                print()
+                    else:
+                        if self._process_download(info, audio_format):
+                            success += 1
+                        else:
+                            failed += 1
+
+                    if is_playlist:
+                        print()
+                        print("━" * 60)
+                        print("✅ Download complete")
+                        print(f"   Success: {success}")
+                        if failed > 0:
+                            print(f"   Failed: {failed} (see {self.config.failed_log})")
+
+                except Exception as e:
+                    print(f"❌ Download failed: {e}", file=sys.stderr)
+                    self.log_failure(url, str(e))
+                    raise
+
+    def _download_single_video(self, video_url: str, audio_format: str) -> bool:
+        """Download a single video and process it.
+
+        Args:
+            video_url: URL of the video
+            audio_format: Audio format (m4a or mp3)
+
+        Returns:
+            True if successful, False if failed
+        """
+        ydl_opts = {
+            "format": "251/140/bestaudio/best",
+            "postprocessors": [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": audio_format,
+                    "preferredquality": "192",
+                }
+            ],
+            "outtmpl": str(self.output_dir / ".tmp_%(id)s.%(ext)s"),
+            "quiet": True,
+            "no_warnings": False,
+            "extract_flat": False,
+            "remote_components": ["ejs:github"],
+        }
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(video_url, download=True)
+                return self._process_download(info, audio_format)
+        except Exception as e:
+            print(f"  ⚠️ Download failed: {e}", file=sys.stderr)
+            return False
 
     def _process_download(self, info: dict, audio_format: str) -> bool:
         """Process a downloaded file.
