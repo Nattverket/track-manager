@@ -74,7 +74,7 @@ track-manager prioritizes sources in order of quality:
 
 **M4A Advantages:**
 
-- 80% smaller files (~6MB vs 30MB)
+- 70% smaller files (~8MB vs 30MB)
 - Transparent quality at 256kbps AAC
 - Universal compatibility
 - Fast loading in DJ software
