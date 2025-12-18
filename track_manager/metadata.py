@@ -19,8 +19,11 @@ CSV_HEADERS = [
 
 
 def get_metadata_csv_path() -> Path:
-    """Get the metadata review CSV path (repo root)."""
-    return Path(__file__).parent.parent / "tracks-metadata-review.csv"
+    """Get the metadata review CSV path from config."""
+    from .config import Config
+    
+    config = Config()
+    return config.metadata_csv
 
 
 def has_junk_patterns(text: str) -> bool:
@@ -281,7 +284,7 @@ def update_metadata(file_path: Path, artist: str, title: str) -> bool:
         else:
             # Use easy interface for other formats
             audio = MutagenFile(str(file_path), easy=True)
-            if not audio:
+            if audio is None:
                 print(f"⚠️ Could not read file: {file_path}")
                 return False
 

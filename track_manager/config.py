@@ -162,3 +162,13 @@ class Config:
     def dabmusic_endpoint(self) -> str:
         """Get DAB Music endpoint."""
         return self.get("dabmusic.endpoint", "https://dabmusic.xyz")
+
+    @property
+    def metadata_csv(self) -> Path:
+        """Get metadata review CSV path."""
+        csv_path = self.get("metadata_csv", "tracks-metadata-review.csv")
+        # If relative path, resolve relative to config directory
+        csv_path = Path(csv_path)
+        if not csv_path.is_absolute():
+            csv_path = self.config_path.parent / csv_path
+        return csv_path
