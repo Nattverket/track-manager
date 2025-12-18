@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import sys
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Optional, Tuple
 
 from mutagen import File as MutagenFile
 
@@ -30,7 +31,42 @@ class BaseDownloader(ABC):
         self.output_dir = output_dir
         self.parent_downloader = parent_downloader
 
-    @abstractmethod
+    @contextmanager
+    def temp_file_cleanup(self):
+        """Context manager for safe temp file cleanup.
+        
+        Only cleans up the specific temp file on error, not on success.
+        Doesn't interfere with other ongoing downloads.
+        
+        Yields:
+            Callback function to register temp file path for cleanup
+            
+        Example:
+            with self.temp_file_cleanup() as register_temp:
+                temp_file = download_to_temp()
+                register_temp(temp_file)
+                # ... process temp file ...
+                temp_file.rename(final_path)  # Success - no cleanup needed
+        """
+        temp_file_path: Optional[Path] = None
+        
+        def register_temp(path: Path):
+            """Register temp file for cleanup on error."""
+            nonlocal temp_file_path
+            temp_file_path = path
+        
+        try:
+            yield register_temp
+        except Exception:
+            # Clean up only our specific temp file on error
+            if temp_file_path and temp_file_path.exists():
+                try:
+                    temp_file_path.unlink()
+                    print(f"🧹 Cleaned up temp file: {temp_file_path.name}", file=sys.stderr)
+                except Exception as cleanup_error:
+                    print(f"⚠️ Failed to clean up temp file: {cleanup_error}", file=sys.stderr)
+            raise
+
     def download(self, url: str, format: str):
         """Download track(s) from URL.
 

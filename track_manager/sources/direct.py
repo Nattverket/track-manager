@@ -48,34 +48,38 @@ class DirectDownloader(BaseDownloader):
             response = requests.get(url, stream=True, timeout=30)
             response.raise_for_status()
 
-            # Create temp file
-            temp_file = (
-                self.output_dir / f".tmp_{Path(original_name).stem}.{original_ext}"
-            )
+            # Create temp file with cleanup on error
+            with self.temp_file_cleanup() as register_temp:
+                temp_file = (
+                    self.output_dir / f".tmp_{Path(original_name).stem}.{original_ext}"
+                )
 
-            # Download with progress
-            total_size = int(response.headers.get("content-length", 0))
-            downloaded = 0
+                # Download with progress
+                total_size = int(response.headers.get("content-length", 0))
+                downloaded = 0
 
-            with open(temp_file, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total_size:
-                            progress = (downloaded / total_size) * 100
-                            print(f"\rProgress: {progress:.1f}%", end="", flush=True)
+                with open(temp_file, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size:
+                                progress = (downloaded / total_size) * 100
+                                print(f"\rProgress: {progress:.1f}%", end="", flush=True)
 
-            print()
-            print("✅ Downloaded")
-            print()
+                # Register temp file for cleanup on error
+                register_temp(temp_file)
 
-            # Process the downloaded file
-            if self._process_download(temp_file, url, format):
-                print("✅ Download complete")
-            else:
-                print("⚠️ Download completed but processing failed", file=sys.stderr)
-                self.log_failure(url, "Processing failed")
+                print()
+                print("✅ Downloaded")
+                print()
+
+                # Process the downloaded file
+                if self._process_download(temp_file, url, format):
+                    print("✅ Download complete")
+                else:
+                    print("⚠️ Download completed but processing failed", file=sys.stderr)
+                    self.log_failure(url, "Processing failed")
 
         except requests.exceptions.RequestException as e:
             print(f"❌ Download failed: {e}", file=sys.stderr)
@@ -104,16 +108,11 @@ class DirectDownloader(BaseDownloader):
             # Determine if format conversion needed
             current_ext = file_path.suffix[1:].lower()
 
-            # Check if metadata is good
-            if not artist or not title:
-                # Flag for review
-                self.flag_metadata_review(
-                    file_path,
-                    "Missing or incomplete metadata from direct download",
-                    url,
-                )
-
-                # Use filename as fallback
+            # Check if metadata is missing
+            missing_metadata = not artist or not title
+            
+            # Use fallbacks if needed
+            if missing_metadata:
                 artist = "Unknown"
                 title = file_path.stem
 
@@ -133,6 +132,14 @@ class DirectDownloader(BaseDownloader):
                 artist, title, final_ext, fallback=file_path.stem
             )
             final_path = self.output_dir / final_name
+
+            # Flag for review with final path (after rename)
+            if missing_metadata:
+                self.flag_metadata_review(
+                    final_path,
+                    "Missing or incomplete metadata from direct download",
+                    url,
+                )
 
             # Check for duplicates
             if self.check_duplicate(file_path):
