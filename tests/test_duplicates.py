@@ -457,3 +457,128 @@ class TestFindDuplicatesByISRC:
         assert len(result) == 2
         assert file1 in result
         assert file2 in result
+
+
+class TestFindDuplicatesByTrackURL:
+    """Test track URL-based duplicate detection."""
+
+    def test_find_duplicates_by_track_url_no_url(self, tmp_path):
+        """Test with empty track URL."""
+        from track_manager.duplicates import find_duplicates_by_track_url
+
+        result = find_duplicates_by_track_url("", tmp_path)
+        assert result == []
+
+    def test_find_duplicates_by_track_url_no_matches(self, tmp_path):
+        """Test when no files match the track URL."""
+        from track_manager.duplicates import find_duplicates_by_track_url
+        from mutagen.mp4 import MP4
+        import subprocess
+
+        # Create a test M4A file with different track URL
+        file_path = tmp_path / "test.m4a"
+        subprocess.run(
+            ["ffmpeg", "-f", "lavfi", "-i", "sine=frequency=1000:duration=1", 
+             "-c:a", "aac", "-y", str(file_path)],
+            capture_output=True, check=True
+        )
+        
+        # Add track URL metadata
+        audio = MP4(str(file_path))
+        audio["----:com.apple.iTunes:TRACK_URL"] = [b"https://open.spotify.com/track/123"]
+        audio.save()
+
+        result = find_duplicates_by_track_url("https://open.spotify.com/track/456", tmp_path)
+        assert result == []
+
+    def test_find_duplicates_by_track_url_with_match(self, tmp_path):
+        """Test when a file matches the track URL."""
+        from track_manager.duplicates import find_duplicates_by_track_url
+        from mutagen.mp4 import MP4
+        import subprocess
+
+        # Create a test M4A file with matching track URL
+        file_path = tmp_path / "test.m4a"
+        subprocess.run(
+            ["ffmpeg", "-f", "lavfi", "-i", "sine=frequency=1000:duration=1", 
+             "-c:a", "aac", "-y", str(file_path)],
+            capture_output=True, check=True
+        )
+        
+        # Add track URL metadata
+        audio = MP4(str(file_path))
+        audio["----:com.apple.iTunes:TRACK_URL"] = [b"https://open.spotify.com/track/123"]
+        audio.save()
+
+        result = find_duplicates_by_track_url("https://open.spotify.com/track/123", tmp_path)
+        assert len(result) == 1
+        assert result[0] == file_path
+
+    def test_find_duplicates_by_track_url_ignores_trailing_slash(self, tmp_path):
+        """Test that trailing slashes in URLs are ignored."""
+        from track_manager.duplicates import find_duplicates_by_track_url
+        from mutagen.mp4 import MP4
+        import subprocess
+
+        # Create file with URL without trailing slash
+        file_path = tmp_path / "test.m4a"
+        subprocess.run(
+            ["ffmpeg", "-f", "lavfi", "-i", "sine=frequency=1000:duration=1", 
+             "-c:a", "aac", "-y", str(file_path)],
+            capture_output=True, check=True
+        )
+        
+        audio = MP4(str(file_path))
+        audio["----:com.apple.iTunes:TRACK_URL"] = [b"https://open.spotify.com/track/123"]
+        audio.save()
+
+        # Search with trailing slash
+        result = find_duplicates_by_track_url("https://open.spotify.com/track/123/", tmp_path)
+        assert len(result) == 1
+        assert result[0] == file_path
+
+    def test_find_duplicates_by_track_url_ignores_query_params(self, tmp_path):
+        """Test that query parameters in URLs are ignored."""
+        from track_manager.duplicates import find_duplicates_by_track_url
+        from mutagen.mp4 import MP4
+        import subprocess
+
+        # Create file with clean URL
+        file_path = tmp_path / "test.m4a"
+        subprocess.run(
+            ["ffmpeg", "-f", "lavfi", "-i", "sine=frequency=1000:duration=1", 
+             "-c:a", "aac", "-y", str(file_path)],
+            capture_output=True, check=True
+        )
+        
+        audio = MP4(str(file_path))
+        audio["----:com.apple.iTunes:TRACK_URL"] = [b"https://open.spotify.com/track/123"]
+        audio.save()
+
+        # Search with query parameters
+        result = find_duplicates_by_track_url("https://open.spotify.com/track/123?si=abc123", tmp_path)
+        assert len(result) == 1
+        assert result[0] == file_path
+
+    def test_find_duplicates_by_track_url_case_insensitive(self, tmp_path):
+        """Test that URL matching is case-insensitive."""
+        from track_manager.duplicates import find_duplicates_by_track_url
+        from mutagen.mp4 import MP4
+        import subprocess
+
+        # Create file with lowercase URL
+        file_path = tmp_path / "test.m4a"
+        subprocess.run(
+            ["ffmpeg", "-f", "lavfi", "-i", "sine=frequency=1000:duration=1", 
+             "-c:a", "aac", "-y", str(file_path)],
+            capture_output=True, check=True
+        )
+        
+        audio = MP4(str(file_path))
+        audio["----:com.apple.iTunes:TRACK_URL"] = [b"https://open.spotify.com/track/abc"]
+        audio.save()
+
+        # Search with uppercase
+        result = find_duplicates_by_track_url("https://open.spotify.com/track/ABC", tmp_path)
+        assert len(result) == 1
+        assert result[0] == file_path

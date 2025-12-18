@@ -133,6 +133,47 @@ def normalize_metadata(artist: Optional[str], title: Optional[str]) -> Tuple[str
     return normalize_text(artist or ""), normalize_text(title or "")
 
 
+def find_duplicates_by_track_url(track_url: str, library_dir: Path) -> List[Path]:
+    """Find duplicate tracks in library by track URL.
+
+    Args:
+        track_url: Original track URL
+        library_dir: Library directory
+
+    Returns:
+        List of duplicate file paths
+    """
+    if not track_url:
+        return []
+
+    duplicates = []
+
+    # Normalize URL for comparison (remove trailing slashes, query params)
+    normalized_url = track_url.rstrip('/').split('?')[0].lower()
+
+    # Scan for M4A files
+    for pattern in ["*.m4a", "*.M4A"]:
+        for file_path in library_dir.glob(pattern):
+            try:
+                audio = MP4(str(file_path))
+                if not audio:
+                    continue
+
+                # M4A files store track URL in provenance
+                url_tags = audio.get("----:com.apple.iTunes:TRACK_URL")
+                if url_tags:
+                    file_url = url_tags[0].decode("utf-8")
+                    # Normalize for comparison
+                    file_url_normalized = file_url.rstrip('/').split('?')[0].lower()
+                    if file_url_normalized == normalized_url:
+                        duplicates.append(file_path)
+
+            except Exception:
+                continue
+
+    return duplicates
+
+
 def find_duplicates_by_isrc(isrc: str, library_dir: Path) -> List[Path]:
     """Find duplicate tracks in library by ISRC.
 
