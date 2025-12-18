@@ -267,16 +267,21 @@ class SpotifyDownloader(BaseDownloader):
         Returns:
             List of existing duplicate file paths, empty if no duplicates
         """
-        from ..duplicates import find_duplicates
+        from ..duplicates import find_duplicates, find_duplicates_by_isrc
 
-        # Use Spotify metadata for duplicate check
+        # Priority 1: Check by ISRC (most reliable)
+        if song.isrc:
+            duplicates = find_duplicates_by_isrc(song.isrc, self.output_dir)
+            if duplicates:
+                return duplicates
+
+        # Priority 2: Check by metadata (fallback)
         artist = song.artist
         title = song.name
 
         if not artist or not title:
             return []
 
-        # Check for existing duplicates
         duplicates = find_duplicates(artist, title, self.output_dir)
 
         return duplicates

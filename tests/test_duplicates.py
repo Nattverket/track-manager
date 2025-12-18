@@ -346,3 +346,114 @@ class TestScanLibrary:
                 # Verify the key format (normalized artist|||title)
                 key = list(duplicates.keys())[0]
                 assert "test artist|||test title" == key
+
+
+class TestFindDuplicatesByISRC:
+    """Test ISRC-based duplicate detection."""
+
+    def test_find_duplicates_by_isrc_no_isrc(self, tmp_path):
+        """Test with empty ISRC."""
+        from track_manager.duplicates import find_duplicates_by_isrc
+
+        result = find_duplicates_by_isrc("", tmp_path)
+        assert result == []
+
+    def test_find_duplicates_by_isrc_no_matches(self, tmp_path):
+        """Test when no files match the ISRC."""
+        from track_manager.duplicates import find_duplicates_by_isrc
+        from mutagen.mp4 import MP4
+        import subprocess
+
+        # Create a test M4A file with FFmpeg
+        file_path = tmp_path / "test.m4a"
+        subprocess.run(
+            ["ffmpeg", "-f", "lavfi", "-i", "sine=frequency=1000:duration=1", 
+             "-c:a", "aac", "-y", str(file_path)],
+            capture_output=True, check=True
+        )
+        
+        # Add ISRC metadata
+        audio = MP4(str(file_path))
+        audio["----:com.apple.iTunes:ISRC"] = [b"USRC12345678"]
+        audio.save()
+
+        result = find_duplicates_by_isrc("USRC87654321", tmp_path)
+        assert result == []
+
+    def test_find_duplicates_by_isrc_with_match(self, tmp_path):
+        """Test when a file matches the ISRC."""
+        from track_manager.duplicates import find_duplicates_by_isrc
+        from mutagen.mp4 import MP4
+        import subprocess
+
+        # Create a test M4A file with FFmpeg
+        file_path = tmp_path / "test.m4a"
+        subprocess.run(
+            ["ffmpeg", "-f", "lavfi", "-i", "sine=frequency=1000:duration=1", 
+             "-c:a", "aac", "-y", str(file_path)],
+            capture_output=True, check=True
+        )
+        
+        # Add ISRC metadata
+        audio = MP4(str(file_path))
+        audio["----:com.apple.iTunes:ISRC"] = [b"USRC12345678"]
+        audio.save()
+
+        result = find_duplicates_by_isrc("USRC12345678", tmp_path)
+        assert len(result) == 1
+        assert result[0] == file_path
+
+    def test_find_duplicates_by_isrc_case_insensitive(self, tmp_path):
+        """Test that ISRC matching is case-insensitive."""
+        from track_manager.duplicates import find_duplicates_by_isrc
+        from mutagen.mp4 import MP4
+        import subprocess
+
+        # Create a test M4A file with FFmpeg
+        file_path = tmp_path / "test.m4a"
+        subprocess.run(
+            ["ffmpeg", "-f", "lavfi", "-i", "sine=frequency=1000:duration=1", 
+             "-c:a", "aac", "-y", str(file_path)],
+            capture_output=True, check=True
+        )
+        
+        # Add ISRC metadata in lowercase
+        audio = MP4(str(file_path))
+        audio["----:com.apple.iTunes:ISRC"] = [b"usrc12345678"]
+        audio.save()
+
+        result = find_duplicates_by_isrc("USRC12345678", tmp_path)
+        assert len(result) == 1
+        assert result[0] == file_path
+
+    def test_find_duplicates_by_isrc_multiple_matches(self, tmp_path):
+        """Test when multiple files have the same ISRC."""
+        from track_manager.duplicates import find_duplicates_by_isrc
+        from mutagen.mp4 import MP4
+        import subprocess
+
+        # Create two test M4A files with FFmpeg
+        file1 = tmp_path / "test1.m4a"
+        subprocess.run(
+            ["ffmpeg", "-f", "lavfi", "-i", "sine=frequency=1000:duration=1", 
+             "-c:a", "aac", "-y", str(file1)],
+            capture_output=True, check=True
+        )
+        audio1 = MP4(str(file1))
+        audio1["----:com.apple.iTunes:ISRC"] = [b"USRC12345678"]
+        audio1.save()
+
+        file2 = tmp_path / "test2.m4a"
+        subprocess.run(
+            ["ffmpeg", "-f", "lavfi", "-i", "sine=frequency=1000:duration=1", 
+             "-c:a", "aac", "-y", str(file2)],
+            capture_output=True, check=True
+        )
+        audio2 = MP4(str(file2))
+        audio2["----:com.apple.iTunes:ISRC"] = [b"USRC12345678"]
+        audio2.save()
+
+        result = find_duplicates_by_isrc("USRC12345678", tmp_path)
+        assert len(result) == 2
+        assert file1 in result
+        assert file2 in result

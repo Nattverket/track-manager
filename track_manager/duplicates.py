@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from mutagen import File as MutagenFile
+from mutagen.mp4 import MP4
 
 
 def normalize_text(text: str) -> str:
@@ -132,8 +133,62 @@ def normalize_metadata(artist: Optional[str], title: Optional[str]) -> Tuple[str
     return normalize_text(artist or ""), normalize_text(title or "")
 
 
+def find_duplicates_by_isrc(isrc: str, library_dir: Path) -> List[Path]:
+    """Find duplicate tracks in library by ISRC.
+
+    Args:
+        isrc: ISRC code
+        library_dir: Library directory
+
+    Returns:
+        List of duplicate file paths
+    """
+    if not isrc:
+        return []
+
+    duplicates = []
+
+    # Scan for M4A files
+    for pattern in ["*.m4a", "*.M4A"]:
+        for file_path in library_dir.glob(pattern):
+            try:
+                audio = MP4(str(file_path))
+                if not audio:
+                    continue
+
+                # M4A files store ISRC in ----:com.apple.iTunes:ISRC
+                isrc_tags = audio.get("----:com.apple.iTunes:ISRC")
+                if isrc_tags:
+                    file_isrc = isrc_tags[0].decode("utf-8")
+                    if file_isrc.upper() == isrc.upper():
+                        duplicates.append(file_path)
+
+            except Exception:
+                continue
+
+    # Scan for MP3 files
+    for pattern in ["*.mp3", "*.MP3"]:
+        for file_path in library_dir.glob(pattern):
+            try:
+                from mutagen.id3 import ID3
+                audio = ID3(str(file_path))
+                if not audio:
+                    continue
+
+                # MP3 files store ISRC in TSRC frame
+                if "TSRC" in audio:
+                    file_isrc = str(audio["TSRC"])
+                    if file_isrc.upper() == isrc.upper():
+                        duplicates.append(file_path)
+
+            except Exception:
+                continue
+
+    return duplicates
+
+
 def find_duplicates(artist: str, title: str, library_dir: Path) -> List[Path]:
-    """Find duplicate tracks in library.
+    """Find duplicate tracks in library by metadata.
 
     Args:
         artist: Artist name
