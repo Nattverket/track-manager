@@ -491,8 +491,28 @@ class Downloader:
 
         Returns:
             Source type: 'spotify', 'youtube', 'soundcloud', or 'direct'
+        
+        Raises:
+            ValueError: If URL is invalid or not supported
         """
         parsed = urlparse(url)
+        
+        # Validate URL has proper scheme
+        if not parsed.scheme or parsed.scheme not in ['http', 'https']:
+            raise ValueError(
+                f"Invalid URL: '{url}'\n"
+                "URLs must start with http:// or https://\n"
+                "Run 'track-manager --help' for usage examples"
+            )
+        
+        # Validate URL has domain
+        if not parsed.netloc:
+            raise ValueError(
+                f"Invalid URL: '{url}'\n"
+                "URL must include a domain name\n"
+                "Run 'track-manager --help' for usage examples"
+            )
+        
         domain = parsed.netloc.lower()
 
         if "spotify.com" in domain:
