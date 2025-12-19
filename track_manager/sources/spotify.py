@@ -366,7 +366,7 @@ class SpotifyDownloader(BaseDownloader):
                 # Move to final location
                 temp_file.rename(final_path)
                 
-                # Add provenance metadata
+                # Add provenance metadata (including ISRC from Spotify)
                 # When downloaded from YouTube via yt-dlp with format 251 -> M4A conversion
                 self._add_provenance_metadata(
                     final_path,
@@ -374,6 +374,7 @@ class SpotifyDownloader(BaseDownloader):
                     format,
                     info.get("abr", 192),  # Use reported bitrate or default to 192
                     playlist_url,
+                    isrc=song.isrc,
                 )
                 
                 print(f"✅ Saved: {final_name}")
@@ -436,6 +437,7 @@ class SpotifyDownloader(BaseDownloader):
                 final_path.suffix[1:],  # Get format from file extension
                 128,  # Spotify via spotdl downloads at ~128kbps from YouTube
                 playlist_url,
+                isrc=song.isrc,
             )
 
             print(f"✅ Saved: {final_name}")

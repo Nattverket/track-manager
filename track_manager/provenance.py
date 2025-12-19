@@ -26,3 +26,6 @@ class DownloadProvenance:
     
     original_bitrate: Optional[int]
     """Original bitrate in kbps, None for lossless formats"""
+    
+    isrc: Optional[str] = None
+    """ISRC code if available"""

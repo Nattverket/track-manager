@@ -83,6 +83,7 @@ class BaseDownloader(ABC):
         original_format: str,
         original_bitrate: Optional[int],
         playlist_url: Optional[str] = None,
+        isrc: Optional[str] = None,
     ):
         """Add provenance metadata to downloaded file.
 
@@ -92,6 +93,7 @@ class BaseDownloader(ABC):
             original_format: Original audio format
             original_bitrate: Original bitrate in kbps
             playlist_url: Optional playlist URL
+            isrc: Optional ISRC code
         """
         from ..provenance import DownloadProvenance
 
@@ -106,6 +108,7 @@ class BaseDownloader(ABC):
                 source=source,
                 original_format=original_format,
                 original_bitrate=original_bitrate,
+                isrc=isrc,
             )
 
             # Apply to file based on format
@@ -138,6 +141,8 @@ class BaseDownloader(ABC):
         audio["----:com.apple.iTunes:ORIGINAL_FORMAT"] = provenance.original_format.encode(
             "utf-8"
         )
+        if provenance.isrc:
+            audio["----:com.apple.iTunes:ISRC"] = provenance.isrc.encode("utf-8")
         if provenance.original_bitrate:
             audio["----:com.apple.iTunes:ORIGINAL_BITRATE"] = str(
                 provenance.original_bitrate
