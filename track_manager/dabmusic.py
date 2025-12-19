@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import requests
+from .rate_limiter import dab_rate_limit
 
 
 class DABMusicClient:
@@ -79,6 +80,9 @@ class DABMusicClient:
             session.headers.update(self.session.headers)
             session.cookies.update(self.session.cookies)
             
+            # Apply rate limiting
+            dab_rate_limit()
+            
             response = session.get(
                 f"{self.endpoint}/api/search",
                 params={"q": isrc, "type": "track"},
@@ -121,7 +125,8 @@ class DABMusicClient:
             session.headers.update(self.session.headers)
             session.cookies.update(self.session.cookies)
             
-            # Get stream URL
+            # Get stream URL with rate limiting
+            dab_rate_limit()
             response = session.get(
                 f"{self.endpoint}/api/stream",
                 params={"trackId": track_id, "quality": quality},
@@ -137,7 +142,8 @@ class DABMusicClient:
                 print("❌ No stream URL returned", file=sys.stderr)
                 return False
 
-            # Download audio file
+            # Download audio file with rate limiting
+            dab_rate_limit()
             response = session.get(stream_url, timeout=60)
             response.raise_for_status()
 

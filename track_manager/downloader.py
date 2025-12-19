@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from .config import Config
 from .songlink import SongLinkClient
 from .sources import direct, soundcloud, spotify, youtube
+from .rate_limiter import spotify_rate_limit, dab_rate_limit
 
 
 class Downloader:
@@ -77,7 +78,8 @@ class Downloader:
             )
             sp = spotipy.Spotify(auth_manager=auth_manager)
 
-            # Get track data
+            # Get track data with rate limiting
+            spotify_rate_limit()
             track = sp.track(spotify_id)
             isrc = track.get("external_ids", {}).get("isrc")
 

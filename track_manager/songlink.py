@@ -5,6 +5,7 @@ from typing import Dict, Optional
 from urllib.parse import quote
 
 import requests
+from .rate_limiter import songlink_rate_limit
 
 
 class SongLinkClient:
@@ -34,6 +35,9 @@ class SongLinkClient:
             requests.RequestException: If API request fails
         """
         try:
+            # Apply rate limiting
+            songlink_rate_limit()
+            
             response = self.session.get(f"{self.API_BASE}?url={quote(url)}", timeout=10)
             response.raise_for_status()
 
@@ -72,6 +76,9 @@ class SongLinkClient:
             Dictionary with title, artist, etc. if found
         """
         try:
+            # Apply rate limiting
+            songlink_rate_limit()
+            
             response = self.session.get(f"{self.API_BASE}?url={quote(url)}", timeout=10)
             response.raise_for_status()
 

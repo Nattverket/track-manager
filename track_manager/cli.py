@@ -254,6 +254,25 @@ def check_setup():
         sys.exit(1)
 
 
+@cli.command("rate-stats")
+def rate_stats():
+    """Show API rate limit statistics."""
+    from .rate_limiter import get_rate_limit_stats
+    
+    click.echo("📊 API Rate Limit Statistics")
+    click.echo()
+    
+    stats = get_rate_limit_stats()
+    
+    for service, data in stats.items():
+        service_name = service.replace('_', ' ').title()
+        click.echo(f"🔹 {service_name}:")
+        click.echo(f"   Calls (last minute): {data['calls_last_minute']}")
+        click.echo(f"   Tokens available: {data['tokens_available']}/{data['burst_size']}")
+        click.echo(f"   Rate limit: {data['rate']:.2f} calls/sec")
+        click.echo()
+
+
 @cli.command()
 def init():
     """Initialize configuration file in ~/.config/track-manager/."""
