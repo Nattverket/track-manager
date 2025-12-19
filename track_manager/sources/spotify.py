@@ -69,8 +69,9 @@ class SpotifyDownloader(BaseDownloader):
 
         downloader_settings = DownloaderOptions()
         downloader_settings["output"] = str(output_dir)
-        # Set format to m4a and use high quality encoding
-        downloader_settings["format"] = "m4a"
+        # Don't set format to m4a - let yt-dlp args control the download
+        # This forces spotdl to use yt_dlp_args instead of looking for native m4a
+        downloader_settings["format"] = "opus"  # Download as opus, will convert to m4a
         downloader_settings["bitrate"] = "192"
         # Prefer format 251 (Opus ~160kbps, 20kHz) over 140 (AAC ~128kbps, 16kHz)
         downloader_settings["yt_dlp_args"] = "--format 251/140/bestaudio/best"
@@ -167,20 +168,24 @@ class SpotifyDownloader(BaseDownloader):
                             success += 1
                             continue
 
-                    # Fallback: Download directly from YouTube using yt-dlp
-                    # This ensures we get format 251 (Opus) -> M4A conversion
-                    # instead of format 140 (native M4A at lower quality)
-                    if song.download_url:
-                        print(f"  ⬇️ Downloading from YouTube: {song.download_url}")
-                        if self._download_from_youtube(
-                            song, audio_format, playlist_url
+                    # Fallback: Download using spotdl
+                    # With format="opus", spotdl will respect yt_dlp_args and download format 251
+                    print("  ⬇️ Downloading from YouTube (via spotdl)")
+                    result = self.spotdl.download(song)
+
+                    if result:
+                        # Find downloaded file (will be .m4a after conversion)
+                        file_path = self._find_downloaded_file(song, audio_format)
+
+                        if file_path and self._process_download(
+                            file_path, song, audio_format, playlist_url
                         ):
                             success += 1
                         else:
                             failed += 1
                     else:
-                        print("⚠️ No YouTube URL found")
-                        self.log_failure(song.url, "No download URL available")
+                        print("⚠️ Download failed")
+                        self.log_failure(song.url, "Download returned None")
                         failed += 1
 
                 except Exception as e:
