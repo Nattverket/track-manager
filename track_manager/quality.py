@@ -67,12 +67,13 @@ def format_duration(seconds: float) -> str:
     return f"{minutes}:{secs:02d}"
 
 
-def analyze_library(output_dir: Path, detailed: bool = False) -> Dict:
+def analyze_library(output_dir: Path, detailed: bool = False, verbose: bool = False) -> Dict:
     """Analyze audio quality across library.
 
     Args:
         output_dir: Library directory
         detailed: Show detailed info for each file
+        verbose: Show outlier tracks (worst/best quality)
 
     Returns:
         Dict with analysis results
@@ -86,6 +87,8 @@ def analyze_library(output_dir: Path, detailed: bool = False) -> Dict:
         for file_path in output_dir.glob(pattern):
             info = get_audio_info(file_path)
             if info:
+                # Store full path for verbose output
+                info["path"] = file_path
                 files_info.append(info)
 
     if not files_info:
@@ -144,6 +147,33 @@ def analyze_library(output_dir: Path, detailed: bool = False) -> Dict:
                     print(f"    High (≥256 kbps): {len(high_quality)} files")
 
         print()
+
+    # Show outliers if verbose
+    if verbose and files_info:
+        print(f"\n{'=' * 80}")
+        print("QUALITY OUTLIERS")
+        print(f"{'=' * 80}\n")
+
+        # Get files with valid bitrates
+        files_with_bitrate = [f for f in files_info if f["bitrate"] > 0]
+        
+        if files_with_bitrate:
+            # Sort by bitrate
+            sorted_by_bitrate = sorted(files_with_bitrate, key=lambda x: x["bitrate"])
+            
+            # Show worst quality (lowest bitrate)
+            print("📉 Lowest Quality Tracks (5 worst):")
+            print(f"{'-' * 80}")
+            for info in sorted_by_bitrate[:5]:
+                print(f"  {format_bitrate(info['bitrate']):>10} - {info['path']}")
+            print()
+            
+            # Show best quality (highest bitrate)
+            print("📈 Highest Quality Tracks (5 best):")
+            print(f"{'-' * 80}")
+            for info in sorted_by_bitrate[-5:][::-1]:  # Reverse to show highest first
+                print(f"  {format_bitrate(info['bitrate']):>10} - {info['path']}")
+            print()
 
     # Show detailed file list if requested
     if detailed:

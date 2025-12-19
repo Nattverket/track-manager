@@ -140,12 +140,13 @@ def verify_metadata():
 
 @cli.command("check-quality")
 @click.option("--detailed", "-d", is_flag=True, help="Show detailed info for each file")
-def check_quality(detailed: bool):
+@click.option("--verbose", "-v", is_flag=True, help="Show outlier tracks (worst/best quality)")
+def check_quality(detailed: bool, verbose: bool):
     """Check audio quality of tracks in library."""
     from .quality import analyze_library
 
     config = Config()
-    analyze_library(config.output_dir, detailed)
+    analyze_library(config.output_dir, detailed, verbose)
 
 
 @cli.command("apply-metadata")
