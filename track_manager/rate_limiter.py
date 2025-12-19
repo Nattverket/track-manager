@@ -91,7 +91,10 @@ class RateLimiter:
 
 
 # Global rate limiters for each service
-_spotify_limiter = RateLimiter(calls_per_second=5.0, burst_size=10)
+# Note: Spotify rate limit is very conservative (1/sec) because spotdl
+# makes many internal calls during playlist fetching. Better to be slow
+# and reliable than hit rate limits.
+_spotify_limiter = RateLimiter(calls_per_second=1.0, burst_size=3)
 _songlink_limiter = RateLimiter(calls_per_second=0.15, burst_size=2)  # ~9/min, conservative
 _dab_limiter = RateLimiter(calls_per_second=2.0, burst_size=5)
 
