@@ -2,22 +2,19 @@
 
 ### High Priority
 
-- [ ] **Duplicate Detection**
-- Make sure all detectable duplicates are skipped
-- interactive mode working
-- Explore fuzzy matching
+- [ ] **Duplicate Detection** finish interactive mode
 - [ ] **Visual consitency** Make all download processes visually compatible
-- [ ] **Filename sanitization**
-- Apply sanitization also after applying user entered metadata with "track-manager apply-metadata"
+- [ ] **Filename sanitization** Apply sanitization also after applying user entered metadata with "track-manager apply-metadata"
 
 ### Medium Priority
 
 - [ ] **Integration tests** - Add tests for complete workflows
+- [ ] **Failed Download Handling**
+- Retry command for failed downloads
+- Cleanup from error log upon successful retry or duplicate detected retry
 
 ### Low Priority / Future / Speculative
 
 - [ ] **Additional sources** - Bandcamp, Apple Music, Tidal
 
 ## Known Issues
-
-None currently reported.
