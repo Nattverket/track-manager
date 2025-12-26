@@ -39,8 +39,13 @@ def get_audio_info(file_path: Path) -> Optional[Dict]:
                 except (ValueError, AttributeError):
                     pass
 
-        # Use original bitrate if available (true quality), otherwise use encoded
-        bitrate = original_bitrate if original_bitrate else encoded_bitrate
+        # Use the lowest bitrate as truth (both are in bps after conversion)
+        if original_bitrate and encoded_bitrate:
+            bitrate = min(original_bitrate, encoded_bitrate)
+        elif original_bitrate:
+            bitrate = original_bitrate
+        else:
+            bitrate = encoded_bitrate
         
         info = {
             "file": file_path.name,
