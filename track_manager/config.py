@@ -30,68 +30,27 @@ class Config:
         """Reset singleton for testing."""
         cls._instance = None
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self):
         """Load configuration from YAML file."""
         if self._initialized:
             return
 
-        if config_path is None:
-            # Look for config.yaml in multiple locations
-            config_path = self._find_config()
-
-        self.config_path = config_path
+        self.config_path = Path(__file__).parent.parent / "config.yaml"
         self.config = self._load_config()
         self._initialized = True
-
-    def _find_config(self) -> Path:
-        """Find config file in multiple locations."""
-        # 1. Current working directory (for development)
-        cwd_config = Path.cwd() / "config.yaml"
-        if cwd_config.exists():
-            return cwd_config
-
-        # 2. Package directory (for installed package)
-        pkg_dir = Path(__file__).parent.parent
-        pkg_config = pkg_dir / "config.yaml"
-        if pkg_config.exists():
-            return pkg_config
-
-        # 3. User home directory
-        home_config = Path.home() / ".config" / "track-manager" / "config.yaml"
-        if home_config.exists():
-            return home_config
-
-        # 4. Fallback to package directory (will show error with helpful message)
-        return pkg_config
 
     def _load_config(self) -> dict:
         """Load and parse config file."""
         if not self.config_path.exists():
-            # Try config.example.yaml as fallback
-            example_path = self.config_path.parent / "config.example.yaml"
-            if example_path.exists():
-                print(
-                    f"Warning: config.yaml not found, using config.example.yaml",
-                    file=sys.stderr,
-                )
-                self.config_path = example_path
-            else:
-                print(
-                    f"Error: Configuration file not found: {self.config_path}",
-                    file=sys.stderr,
-                )
-                print(
-                    f"Copy config.example.yaml to config.yaml and customize",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
+            print(f"Error: Configuration file not found: {self.config_path}", file=sys.stderr)
+            print("Copy config.example.yaml to config.yaml and customize", file=sys.stderr)
+            sys.exit(1)
 
         with open(self.config_path) as f:
             config = yaml.safe_load(f)
 
         # Expand home directory in paths
         self._expand_paths(config)
-
         return config
 
     def _expand_paths(self, config: dict):
@@ -118,14 +77,15 @@ class Config:
     @property
     def output_dir(self) -> Path:
         """Get output directory path."""
-        return Path(self.get("output_dir", "~/Music/tm/tracks"))
+        return Path(self.get("output_dir"))
 
     @property
     def failed_log(self) -> Path:
         """Get failed downloads log path."""
-        return Path(self.get("failed_log", "~/Music/tm/failed-downloads.txt"))
-
-
+        path = self.get("failed_log")
+        if path:
+            return Path(path)
+        return self.config_path.parent / "failed-downloads.txt"
 
     @property
     def spotdl_path(self) -> Optional[str]:
